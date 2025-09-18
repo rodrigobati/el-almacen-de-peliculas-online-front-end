@@ -23,8 +23,8 @@ export default function CatalogPage() {
   }, [query]);
 
   return (
-    <div className="min-h-screen bg-white text-gray-900">
-      <header style={{ padding: 12, borderBottom: "1px solid #e5e7eb", background: "#fff" }}>
+    <div className="min-h-screen" style={{ background: "var(--bg)", color: "var(--text)" }}>
+      <header style={{ padding: 12, borderBottom: "1px solid rgba(255,255,255,0.06)", background: "var(--bg)", color: "var(--text)" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto", display: "flex", gap: 12, alignItems: "center" }}>
           <h2 style={{ margin: 0 }}>Catálogo</h2>
           <div style={{ flex: 1 }}>
@@ -32,7 +32,7 @@ export default function CatalogPage() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Buscar películas..."
-              style={{ width: "100%", padding: "8px 12px", borderRadius: 999, border: "1px solid #e5e7eb" }}
+              style={{ width: "100%", padding: "8px 12px", borderRadius: 999, border: "1px solid rgba(255,255,255,0.06)", background: "#0b0c0d", color: "var(--text)" }}
             />
           </div>
         </div>
@@ -64,7 +64,7 @@ export default function CatalogPage() {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            style={{ background: "#fff", borderRadius: 12, maxWidth: 720, width: "100%", padding: 18 }}
+            style={{ background: "var(--card)", borderRadius: 12, maxWidth: 720, width: "100%", padding: 18, color: "var(--text)" }}
           >
             <div style={{ display: "flex", gap: 12 }}>
               <div style={{ width: 220, flex: "0 0 220px" }}>

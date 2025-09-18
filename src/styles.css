@@ -1,6 +1,6 @@
 :root{
-  --bg: #0f172a;
-  --card: #0b1220;
+  --bg: #181a1b;
+  --card: #181a1b;
   --accent: #06b6d4;
   --text: #e6eef8;
 }
@@ -10,18 +10,18 @@ body{ margin:0; font-family: Inter, system-ui, Arial; background:var(--bg); colo
 
 /* ---- ProductCard ---- */
 .product-card {
-  border: 1px solid #e5e7eb;        /* gris-200 */
+  border: 1px solid rgba(255,255,255,0.04);
   border-radius: 16px;
   overflow: hidden;
-  background: #fff;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, .04);
+  background: var(--card);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .4);
   display: flex;
   flex-direction: column;
 }
 
 .product-img-wrap {
   aspect-ratio: 1 / 1;              /* cuadrado */
-  background: #f3f4f6;              /* gris-100 */
+  background: #0f1112;              /* oscuro */
   overflow: hidden;
 }
 
