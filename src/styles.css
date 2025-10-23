@@ -408,11 +408,65 @@ body {
   display: flex;
   align-items: center;
   gap: 1rem;
+  position: relative;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .welcome-text {
   color: var(--text);
   font-weight: 500;
+}
+
+.settings-btn {
+  background: transparent;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.settings-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: rotate(90deg);
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: var(--card);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+  min-width: 200px;
+  z-index: 1000;
+  overflow: hidden;
+  margin-top: 0.5rem;
+}
+
+.dropdown-item {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.2s ease;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .login-btn, .logout-btn, .login-btn-large {
@@ -529,6 +583,12 @@ body {
   gap: 1rem;
 }
 
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .welcome-text {
   color: var(--text);
   font-weight: 500;
@@ -619,32 +679,10 @@ body {
 }
 
 .dropdown-item:hover {
-  background: var(--card-hover);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .dropdown-item:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-}
-
-.delete-item {
-  color: #ef4444;
-}
-
-.delete-item:hover {
-  background: rgba(239, 68, 68, 0.1);
-  color: #dc2626;
-}
-
-.dropdown-separator {
-  border: none;
-  border-top: 1px solid var(--border);
-  margin: 0.25rem 0;
-}
-
-.dropdown-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 999;
-  background: transparent;
 }
