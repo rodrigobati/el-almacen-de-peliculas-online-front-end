@@ -22,18 +22,28 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let isMounted = true; // Flag para evitar actualizaciones si el componente se desmonta
+
     initKeycloak()
       .then((authenticated) => {
-        setIsAuthenticated(authenticated);
-        if (authenticated) {
-          setUser(getUserInfo());
+        if (isMounted) {
+          setIsAuthenticated(authenticated);
+          if (authenticated) {
+            setUser(getUserInfo());
+          }
+          setLoading(false);
         }
-        setLoading(false);
       })
       .catch((error) => {
         console.error("Error inicializando Keycloak:", error);
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       });
+
+    return () => {
+      isMounted = false; // Cleanup function
+    };
   }, []);
 
   useEffect(() => {

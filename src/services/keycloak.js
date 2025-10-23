@@ -15,9 +15,34 @@ const initOptions = {
   checkLoginIframe: false,
 };
 
-// Inicializar Keycloak
+// Variable para controlar si ya se inicializó
+let isInitialized = false;
+let initPromise = null;
+
+// Inicializar Keycloak (solo una vez)
 const initKeycloak = () => {
-  return keycloak.init(initOptions);
+  // Si ya está inicializado o en proceso, retornar la promesa existente
+  if (isInitialized) {
+    return Promise.resolve(keycloak.authenticated || false);
+  }
+  
+  if (initPromise) {
+    return initPromise;
+  }
+
+  initPromise = keycloak.init(initOptions)
+    .then((authenticated) => {
+      isInitialized = true;
+      return authenticated;
+    })
+    .catch((error) => {
+      console.error('Error al inicializar Keycloak:', error);
+      isInitialized = false;
+      initPromise = null;
+      throw error;
+    });
+
+  return initPromise;
 };
 
 // Funciones de autenticación
