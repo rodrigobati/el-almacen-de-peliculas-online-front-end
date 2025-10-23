@@ -1,7 +1,7 @@
 import Keycloak from 'keycloak-js';
 
 const keycloakConfig = {
-  url: 'http://localhost:8088',
+  url: 'http://localhost:8080',
   realm: 'el-almacen-de-peliculas-reino', 
   clientId: 'videoClub-app', 
 };
