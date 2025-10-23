@@ -2,7 +2,7 @@ import Keycloak from 'keycloak-js';
 
 const keycloakConfig = {
   url: 'http://localhost:8088',
-  realm: 'El-Almacén-de-Películas', 
+  realm: 'almacenPelicula', 
   clientId: 'videoClub-app', 
 };
 
@@ -54,6 +54,73 @@ const updateToken = (successCallback) => keycloak.updateToken(5).then(successCal
 const getUsername = () => keycloak.tokenParsed?.preferred_username;
 const getUserInfo = () => keycloak.tokenParsed;
 
+// Función para abrir Account Management Console
+const openAccountManagement = () => {
+  if (!keycloak.authenticated) {
+    console.error('Usuario no autenticado');
+    return;
+  }
+
+  try {
+    // Opción 1: Account Console moderno
+    const baseUrl = `${keycloakConfig.url}/realms/${keycloakConfig.realm}/account`;
+    const redirectUri = encodeURIComponent('http://localhost:5173/');
+    const accountUrl = `${baseUrl}?referrer=${keycloakConfig.clientId}&referrer_uri=${redirectUri}`;
+    
+    window.open(accountUrl, '_blank');
+  } catch (error) {
+    console.error('Error abriendo Account Console:', error);
+    
+    // Opción 2: Fallback - página de cambio de contraseña
+    const fallbackUrl = `${keycloakConfig.url}/realms/${keycloakConfig.realm}/protocol/openid-connect/auth?response_type=code&client_id=${keycloakConfig.clientId}&redirect_uri=${encodeURIComponent('http://localhost:5173/')}&kc_action=UPDATE_PASSWORD`;
+    window.open(fallbackUrl, '_blank');
+  }
+};
+
+// Función para eliminar cuenta (requiere confirmación)
+const deleteAccount = async () => {
+  if (!keycloak.authenticated) {
+    throw new Error('Usuario no autenticado');
+  }
+
+  const confirmDelete = window.confirm(
+    '⚠️ ¿Estás seguro de que quieres eliminar tu cuenta?\n\n' +
+    'Esta acción es IRREVERSIBLE y se perderán todos tus datos.\n\n' +
+    'Presiona OK para continuar o Cancelar para abortar.'
+  );
+
+  if (!confirmDelete) {
+    return false;
+  }
+
+  try {
+    // Actualizar token antes de hacer la petición
+    await keycloak.updateToken(30);
+    
+    const response = await fetch(
+      `${keycloakConfig.url}/realms/${keycloakConfig.realm}/account`,
+      {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${keycloak.token}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    if (response.ok) {
+      // Logout después de eliminar la cuenta
+      keycloak.logout();
+      return true;
+    } else {
+      throw new Error(`Error ${response.status}: ${response.statusText}`);
+    }
+  } catch (error) {
+    console.error('Error eliminando cuenta:', error);
+    throw error;
+  }
+};
+
 export {
   keycloak,
   initKeycloak,
@@ -64,4 +131,6 @@ export {
   updateToken,
   getUsername,
   getUserInfo,
+  openAccountManagement,
+  deleteAccount,
 };

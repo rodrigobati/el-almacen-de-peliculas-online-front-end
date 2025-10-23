@@ -1,9 +1,10 @@
 import React from "react";
 import { useAuth } from "../contexts/AuthContext";
-import { login, logout } from "../services/keycloak";
+import { login } from "../services/keycloak";
+import UserMenu from "./UserMenu";
 
 export default function LoginButton() {
-  const { isAuthenticated, user, loading } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
 
   if (loading) {
     return (
@@ -14,16 +15,7 @@ export default function LoginButton() {
   }
 
   if (isAuthenticated) {
-    return (
-      <div className="user-menu">
-        <span className="welcome-text">
-          Hola, {user?.preferred_username || "Usuario"}
-        </span>
-        <button onClick={logout} className="logout-btn">
-          Cerrar Sesión
-        </button>
-      </div>
-    );
+    return <UserMenu />;
   }
 
   return (

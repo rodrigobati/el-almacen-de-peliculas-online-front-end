@@ -563,3 +563,88 @@ body {
   padding: 0.75rem 1rem;
   font-size: 0.9rem;
 }
+
+/* User Menu Dropdown */
+.user-menu-container {
+  position: relative;
+}
+
+.user-dropdown {
+  position: relative;
+  display: inline-block;
+  margin-left: 0.75rem;
+}
+
+.user-menu-btn {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+  padding: 0.5rem;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.2s ease;
+}
+
+.user-menu-btn:hover {
+  background: var(--card-hover);
+  border-color: var(--accent);
+}
+
+.user-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  box-shadow: var(--shadow-lg);
+  min-width: 200px;
+  z-index: 1000;
+  padding: 0.5rem 0;
+  margin-top: 0.25rem;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: none;
+  background: none;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.9rem;
+  text-align: left;
+  transition: background-color 0.2s ease;
+}
+
+.dropdown-item:hover {
+  background: var(--card-hover);
+}
+
+.dropdown-item:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.delete-item {
+  color: #ef4444;
+}
+
+.delete-item:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+}
+
+.dropdown-separator {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 0.25rem 0;
+}
+
+.dropdown-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  background: transparent;
+}
