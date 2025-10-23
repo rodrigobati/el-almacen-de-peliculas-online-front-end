@@ -2,30 +2,31 @@
 import React from "react";
 
 export default function CategoryFilter({ categories = [], value, onChange }) {
+  // Crear un array completo con "Todas" como primer elemento
+  const allOptions = [{ id: null, titulo: "Todas" }, ...categories];
+
   return (
     <div
       className="category-filter"
       role="tablist"
       aria-label="Filtrar por categoría"
     >
-      <button
-        role="tab"
-        aria-selected={value == null}
-        onClick={() => onChange?.(undefined)}
-        className={!value ? "active" : ""}
-      >
-        Todas
-      </button>
-      {categories.map((c) => (
+      {allOptions.map((option, index) => (
         <button
-          key={c.id}
+          key={
+            option.id === null
+              ? "all-categories"
+              : option.id
+              ? `category-${option.id}`
+              : `category-index-${index}`
+          }
           role="tab"
-          aria-selected={value === c.id}
-          onClick={() => onChange?.(c.id)}
-          className={value === c.id ? "active" : ""}
-          title={c.titulo}
+          aria-selected={value === option.id}
+          onClick={() => onChange?.(option.id)}
+          className={value === option.id ? "active" : ""}
+          title={option.titulo}
         >
-          {c.titulo}
+          {option.titulo}
         </button>
       ))}
     </div>
