@@ -19,7 +19,10 @@ export default function CatalogPage() {
 
   // Debounce de búsqueda
   useEffect(() => {
-    const t = setTimeout(() => { setPage(0); setQuery(qRaw.trim()); }, 300);
+    const t = setTimeout(() => {
+      setPage(0);
+      setQuery(qRaw.trim());
+    }, 300);
     return () => clearTimeout(t);
   }, [qRaw]);
 
@@ -30,9 +33,15 @@ export default function CatalogPage() {
       try {
         const cats = await fetchCategories();
         if (!ignore) setCategories(cats);
-      } catch {}
+      } catch (error) {
+        console.warn("No se pudieron cargar las categorías:", error.message);
+        // Usar categorías por defecto en caso de error
+        if (!ignore) setCategories([]);
+      }
     })();
-    return () => { ignore = true; };
+    return () => {
+      ignore = true;
+    };
   }, []);
 
   // Cargar películas (query, page, size, categoryId)
@@ -54,7 +63,9 @@ export default function CatalogPage() {
       }
     }
     run();
-    return () => { ignore = true; };
+    return () => {
+      ignore = true;
+    };
   }, [query, page, size, categoryId]);
 
   const pages = Math.max(1, Math.ceil(total / size));
@@ -81,7 +92,10 @@ export default function CatalogPage() {
         <CategoryFilter
           categories={categories}
           value={categoryId}
-          onChange={(id) => { setPage(0); setCategoryId(id); }}
+          onChange={(id) => {
+            setPage(0);
+            setCategoryId(id);
+          }}
         />
 
         {loading && <p className="muted">Cargando…</p>}
@@ -91,14 +105,30 @@ export default function CatalogPage() {
           <>
             <div className="grid">
               {items.map((it, idx) => (
-                <ProductCard key={idx} item={it} onOpen={() => setSelected(it)} />
+                <ProductCard
+                  key={idx}
+                  item={it}
+                  onOpen={() => setSelected(it)}
+                />
               ))}
             </div>
 
             <div className="pager">
-              <button onClick={() => setPage(p => Math.max(0, p-1))} disabled={page===0}>Anterior</button>
-              <span>Página {page+1} de {pages}</span>
-              <button onClick={() => setPage(p => Math.min(pages-1, p+1))} disabled={page>=pages-1}>Siguiente</button>
+              <button
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                disabled={page === 0}
+              >
+                Anterior
+              </button>
+              <span>
+                Página {page + 1} de {pages}
+              </span>
+              <button
+                onClick={() => setPage((p) => Math.min(pages - 1, p + 1))}
+                disabled={page >= pages - 1}
+              >
+                Siguiente
+              </button>
             </div>
           </>
         )}
@@ -106,21 +136,37 @@ export default function CatalogPage() {
 
       {selected && (
         <div className="modal" onClick={() => setSelected(null)}>
-          <div className="sheet" onClick={(e)=>e.stopPropagation()}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()}>
             <div className="sheet-grid">
-              <img className="sheet-img" src={selected.imagenUrl} alt={selected.titulo} />
+              <img
+                className="sheet-img"
+                src={selected.imagenUrl}
+                alt={selected.titulo}
+              />
               <div className="sheet-body">
                 <h3 className="sheet-title">{selected.titulo}</h3>
-                <p className="muted">{selected.genero} · {selected.formato} · {selected.condicion}</p>
-                <p><strong>Precio:</strong> ${selected.precio?.toLocaleString()}</p>
-                <p><strong>Directores:</strong> {selected.directores?.join(", ")}</p>
-                <p><strong>Actores:</strong> {selected.actores?.join(", ")}</p>
-                <p><strong>Fecha de salida:</strong> {selected.fechaSalida}</p>
+                <p className="muted">
+                  {selected.genero} · {selected.formato} · {selected.condicion}
+                </p>
+                <p>
+                  <strong>Precio:</strong> ${selected.precio?.toLocaleString()}
+                </p>
+                <p>
+                  <strong>Directores:</strong> {selected.directores?.join(", ")}
+                </p>
+                <p>
+                  <strong>Actores:</strong> {selected.actores?.join(", ")}
+                </p>
+                <p>
+                  <strong>Fecha de salida:</strong> {selected.fechaSalida}
+                </p>
                 {selected.sinopsis && (
-                  <p style={{marginTop: 8}}>{selected.sinopsis}</p>
+                  <p style={{ marginTop: 8 }}>{selected.sinopsis}</p>
                 )}
                 <div style={{ marginTop: 16 }}>
-                  <button onClick={() => setSelected(null)} className="btn">Cerrar</button>
+                  <button onClick={() => setSelected(null)} className="btn">
+                    Cerrar
+                  </button>
                 </div>
               </div>
             </div>
