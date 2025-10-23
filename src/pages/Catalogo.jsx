@@ -51,10 +51,20 @@ export default function CatalogPage() {
       setLoading(true);
       setError(null);
       try {
-        const data = await searchMovies({ q: query, page, size, categoryId });
+        // Temporalmente no enviamos categoryId al backend hasta que se arregle
+        const data = await searchMovies({ q: query, page, size });
         if (!ignore) {
-          setItems(data.items || []);
-          setTotal(data.total ?? 0);
+          let filteredItems = data.items || [];
+
+          // Filtro temporal del lado del cliente hasta que se arregle el backend
+          if (categoryId) {
+            filteredItems = filteredItems.filter(
+              (item) => item.genero === categoryId
+            );
+          }
+
+          setItems(filteredItems);
+          setTotal(filteredItems.length);
         }
       } catch (e) {
         if (!ignore) setError(String(e));
@@ -97,6 +107,30 @@ export default function CatalogPage() {
             setCategoryId(id);
           }}
         />
+
+        {/* Indicador de filtro activo y resultados */}
+        {!loading && !error && (
+          <div
+            style={{
+              marginBottom: "1.5rem",
+              padding: "1rem",
+              background: "var(--card)",
+              borderRadius: "0.5rem",
+              border: "1px solid var(--border)",
+            }}
+          >
+            {categoryId ? (
+              <p style={{ margin: 0, color: "var(--accent)" }}>
+                🎬 Mostrando <strong>{total}</strong> películas de{" "}
+                <strong>"{categoryId}"</strong>
+              </p>
+            ) : (
+              <p style={{ margin: 0, color: "var(--text-muted)" }}>
+                🎬 Mostrando <strong>{total}</strong> películas en total
+              </p>
+            )}
+          </div>
+        )}
 
         {loading && <p className="muted">Cargando…</p>}
         {error && <p className="error">Error: {error}</p>}

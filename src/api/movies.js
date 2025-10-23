@@ -49,9 +49,15 @@ function mapDTOtoUI(p = {}) {
 
 export async function searchMovies({ q = "", page = 0, size = 12, sort = "fechaSalida", dir = "desc", categoryId } = {}) {
   const params = new URLSearchParams({ q, page, size, sort, dir });
-  if (categoryId != null && categoryId !== "") params.set("categoryId", String(categoryId));
+  
+  // Solo usar categoryId ya que funciona con el backend
+  if (categoryId != null && categoryId !== "") {
+    params.set("categoryId", String(categoryId));
+  }
 
-  const res = await fetch(`${BASE}/api/peliculas?${params.toString()}`);
+  const url = `${BASE}/api/peliculas?${params.toString()}`;
+  
+  const res = await fetch(url);
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(text || `HTTP ${res.status}`);
@@ -68,9 +74,24 @@ export async function fetchCategories() {
     throw new Error(text || `HTTP ${res.status}`);
   }
   const cats = await res.json();
-  // Normalización mínima
-  return (Array.isArray(cats) ? cats : []).map(c => ({
-    id: c.id,
-    titulo: c.titulo ?? c.name ?? c.descripcion ?? ""
-  }));
+  
+  // Manejar tanto array de strings como array de objetos
+  if (Array.isArray(cats)) {
+    return cats.map((c, index) => {
+      // Si es un string, crear objeto con id y titulo
+      if (typeof c === 'string') {
+        return {
+          id: c, // Usar el nombre como id
+          titulo: c
+        };
+      }
+      // Si es un objeto, normalizar
+      return {
+        id: c.id ?? c.name ?? c.titulo ?? index,
+        titulo: c.titulo ?? c.name ?? c.descripcion ?? ""
+      };
+    });
+  }
+  
+  return [];
 }
