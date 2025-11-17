@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import ProductCard from "../components/ProductCard";
 import CategoryFilter from "../components/CategoryFilter";
 import { searchMovies, fetchCategories } from "../api/movies";
+import Reviews from "../pages/Reviews";
 
 export default function CatalogPage() {
   const [qRaw, setQRaw] = useState("");
@@ -16,6 +17,7 @@ export default function CatalogPage() {
   const [selected, setSelected] = useState(null);
   const [categories, setCategories] = useState([]);
   const [categoryId, setCategoryId] = useState();
+  const [mostrarReviews, setMostrarReviews] = useState(false);
 
   // Debounce de búsqueda
   useEffect(() => {
@@ -197,11 +199,26 @@ export default function CatalogPage() {
                 {selected.sinopsis && (
                   <p style={{ marginTop: 8 }}>{selected.sinopsis}</p>
                 )}
-                <div style={{ marginTop: 16 }}>
+
+                <div style={{ marginTop: 8, display: "flex", gap: "1rem" }}>
+                  <button
+                    onClick={() => setMostrarReviews(!mostrarReviews)}
+                    className="btn-reviews"
+                  >
+                    {mostrarReviews ? "Ocultar Reviews" : "Ver Reviews"}
+                  </button>
                   <button onClick={() => setSelected(null)} className="btn">
                     Cerrar
                   </button>
                 </div>
+
+                {/* Componente Reviews */}
+                {mostrarReviews && (
+                  <Reviews
+                    peliculaId={selected.id}
+                    peliculaTitulo={selected.titulo}
+                  />
+                )}
               </div>
             </div>
           </div>
