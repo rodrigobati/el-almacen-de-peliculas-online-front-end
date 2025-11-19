@@ -65,7 +65,7 @@ export default function Reviews({ peliculaId, peliculaTitulo }) {
     setLoading(true);
     try {
       const response = await fetch(
-        `http://localhost:8080/api/peliculas/${peliculaId}/reviews`
+        `http://localhost:9500/api/peliculas/${peliculaId}`
       );
       if (response.ok) {
         const data = await response.json();
@@ -98,7 +98,7 @@ export default function Reviews({ peliculaId, peliculaTitulo }) {
 
     try {
       const response = await fetch(
-        `http://localhost:8080/api/peliculas/${peliculaId}/reviews`,
+        `http://localhost:9500/api/peliculas/${peliculaId}`,
         {
           method: "POST",
           headers: {
