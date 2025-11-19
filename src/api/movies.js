@@ -1,5 +1,5 @@
 // src/api/movies.js
-const BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8080";
+const BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8081";
 
 /**
  * Adapta cualquier payload común a la forma { items, total }
