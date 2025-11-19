@@ -111,14 +111,18 @@ export default function Reviews({ peliculaId, peliculaTitulo }) {
       );
 
       if (response.ok) {
+        const responseData = await response.json();
+        console.log("✅ Review enviada exitosamente:", responseData);
         setNuevaReview({ puntuacion: 5, comentario: "" });
         setMostrarForm(false);
         await cargarReviews();
       } else {
+        const errorData = await response.text();
+        console.error("❌ Error del servidor:", errorData);
         alert("Error al enviar la review");
       }
     } catch (error) {
-      console.error("Error enviando review:", error);
+      console.error("❌ Error enviando review:", error);
       alert("Error al enviar la review");
     } finally {
       setEnviando(false);
