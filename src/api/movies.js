@@ -1,5 +1,5 @@
 // src/api/movies.js
-const BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8081";
+import { API_BASE } from './config.js';
 
 /**
  * Adapta cualquier payload común a la forma { items, total }
@@ -55,7 +55,7 @@ export async function searchMovies({ q = "", page = 0, size = 12, sort = "fechaS
     params.set("categoryId", String(categoryId));
   }
 
-  const url = `${BASE}/api/peliculas?${params.toString()}`;
+  const url = `${API_BASE}/peliculas?${params.toString()}`;
   
   const res = await fetch(url);
   if (!res.ok) {
@@ -68,7 +68,7 @@ export async function searchMovies({ q = "", page = 0, size = 12, sort = "fechaS
 }
 
 export async function fetchCategories() {
-  const res = await fetch(`${BASE}/api/categorias`);
+  const res = await fetch(`${API_BASE}/categorias`);
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(text || `HTTP ${res.status}`);

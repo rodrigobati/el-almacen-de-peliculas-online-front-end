@@ -46,7 +46,7 @@ function ReviewStars({
 }
 
 export default function Reviews({ peliculaId, peliculaTitulo }) {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, keycloak } = useAuth();
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(false);
   const [mostrarForm, setMostrarForm] = useState(false);
@@ -65,7 +65,7 @@ export default function Reviews({ peliculaId, peliculaTitulo }) {
     setLoading(true);
     try {
       const response = await fetch(
-        `http://localhost:8080/api/peliculas/${peliculaId}/reviews`
+        `http://localhost:9500/api/ratings/pelicula/${peliculaId}`
       );
       if (response.ok) {
         const data = await response.json();
@@ -86,19 +86,26 @@ export default function Reviews({ peliculaId, peliculaTitulo }) {
 
     setEnviando(true);
     try {
+      // Obtener el token y el username de Keycloak
+      const token = keycloak?.token;
+      const usuarioId = user?.preferred_username || user?.sub || "anonymous";
+      
+      console.log("Usuario autenticado:", user); // Para debugging
+      console.log("UsuarioId a enviar:", usuarioId);
+      
       const response = await fetch(
-        `http://localhost:8080/api/peliculas/${peliculaId}/reviews`,
+        `http://localhost:9500/api/ratings`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            // Si usas Keycloak, mejor obtener el token del servicio, no del user
-            // Authorization: `Bearer ${getToken()}`,
+            ...(token && { Authorization: `Bearer ${token}` }),
           },
           body: JSON.stringify({
-            puntuacion: nuevaReview.puntuacion,
+            peliculaId: peliculaId,
+            valor: nuevaReview.puntuacion,
             comentario: nuevaReview.comentario.trim(),
-            usuario: user?.preferred_username || "Usuario",
+            usuarioId: usuarioId,
           }),
         }
       );
@@ -131,7 +138,7 @@ export default function Reviews({ peliculaId, peliculaTitulo }) {
   };
 
   const promedio = reviews.length
-    ? reviews.reduce((acc, r) => acc + (r.puntuacion || 0), 0) / reviews.length
+    ? reviews.reduce((acc, r) => acc + (r.valor || 0), 0) / reviews.length
     : 0;
 
   return (
@@ -228,13 +235,13 @@ export default function Reviews({ peliculaId, peliculaTitulo }) {
             <div className="review-header-item">
               <div className="review-usuario-info">
                 <span className="review-usuario">
-                  👤 {review.usuario || "Usuario anónimo"}
+                  👤 {review.usuarioId || "Usuario anónimo"}
                 </span>
                 <span className="review-fecha">
-                  {formatearFecha(review.fecha)}
+                  {formatearFecha(review.fechaCreacion)}
                 </span>
               </div>
-              <ReviewStars value={review.puntuacion} size="small" />
+              <ReviewStars value={review.valor} size="small" />
             </div>
             <div className="review-comentario">{review.comentario}</div>
           </div>
