@@ -145,6 +145,12 @@ export default function Reviews({ peliculaId, peliculaTitulo }) {
     ? reviews.reduce((acc, r) => acc + (r.valor || 0), 0) / reviews.length
     : 0;
 
+  // Verificar si el usuario ya dejó una review
+  const usuarioActual = user?.preferred_username || user?.sub;
+  const usuarioYaReseño = reviews.some(
+    (review) => review.usuarioId === usuarioActual
+  );
+
   return (
     <div className="reviews-container">
       <div className="reviews-header">
@@ -158,13 +164,19 @@ export default function Reviews({ peliculaId, peliculaTitulo }) {
         )}
       </div>
 
-      {isAuthenticated && !mostrarForm && (
+      {isAuthenticated && !mostrarForm && !usuarioYaReseño && (
         <button
           onClick={() => setMostrarForm(true)}
           className="btn-agregar-review"
         >
           ✍️ Escribir una review
         </button>
+      )}
+
+      {isAuthenticated && usuarioYaReseño && (
+        <div className="ya-reseno-mensaje">
+          <p>✓ Ya dejaste tu review para esta película</p>
+        </div>
       )}
 
       {mostrarForm && isAuthenticated && (

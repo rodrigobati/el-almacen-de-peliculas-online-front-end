@@ -31,7 +31,7 @@ export default function ProductCard({ item, onOpen }) {
     item.image ??
     "https://picsum.photos/seed/fallback/640/640";
   const price = item.precio ?? item.price ?? 0;
-  const rating = item.rating ?? 0;
+  const rating = Math.round(item.ratingPromedio ?? item.rating ?? 0);
 
   return (
     <article

@@ -43,7 +43,9 @@ function mapDTOtoUI(p = {}) {
     actores: Array.isArray(p.actores) ? p.actores.map(a => a.nombre ?? a) : [],
     fechaSalida: p.fechaSalida ?? p.fecha_estreno ?? p.releaseDate ?? "",
     sinopsis: p.sinopsis ?? p.descripcion ?? p.description ?? "",
-    rating: p.rating ?? p.puntuacion ?? 0
+    rating: p.rating ?? p.puntuacion ?? 0,
+    ratingPromedio: p.ratingPromedio ?? p.rating_promedio ?? 0,
+    totalRatings: p.totalRatings ?? p.total_ratings ?? 0
   };
 }
 
