@@ -85,6 +85,17 @@ export default function Reviews({ peliculaId, peliculaTitulo }) {
     if (!nuevaReview.comentario.trim() || !isAuthenticated) return;
 
     setEnviando(true);
+
+    // Construir el payload
+    const payload = {
+      peliculaId: peliculaId, // ⬅️ Agregado el ID de la película
+      puntuacion: nuevaReview.puntuacion,
+      comentario: nuevaReview.comentario.trim(),
+      usuario: user?.preferred_username || "Usuario",
+    };
+
+    console.log("📤 Enviando review:", payload); // Ver el JSON en consola
+
     try {
       const response = await fetch(
         `http://localhost:8080/api/peliculas/${peliculaId}/reviews`,
@@ -92,26 +103,26 @@ export default function Reviews({ peliculaId, peliculaTitulo }) {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            // Si usas Keycloak, mejor obtener el token del servicio, no del user
+            // Si usas Keycloak, descomenta esto:
             // Authorization: `Bearer ${getToken()}`,
           },
-          body: JSON.stringify({
-            puntuacion: nuevaReview.puntuacion,
-            comentario: nuevaReview.comentario.trim(),
-            usuario: user?.preferred_username || "Usuario",
-          }),
+          body: JSON.stringify(payload),
         }
       );
 
       if (response.ok) {
+        const responseData = await response.json();
+        console.log("✅ Review enviada exitosamente:", responseData);
         setNuevaReview({ puntuacion: 5, comentario: "" });
         setMostrarForm(false);
         await cargarReviews();
       } else {
+        const errorData = await response.text();
+        console.error("❌ Error del servidor:", errorData);
         alert("Error al enviar la review");
       }
     } catch (error) {
-      console.error("Error enviando review:", error);
+      console.error("❌ Error enviando review:", error);
       alert("Error al enviar la review");
     } finally {
       setEnviando(false);
