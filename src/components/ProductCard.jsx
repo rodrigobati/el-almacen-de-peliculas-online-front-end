@@ -14,45 +14,43 @@ function Star({ filled = false }) {
 }
 
 function Stars({ value = 0 }) {
+  const arr = Array.from({ length: 5 });
   return (
-    <div className="stars" aria-label={`${value} de 5 estrellas`}>
-      {Array.from({ length: 5 }).map((_, i) => (
+    <div className="stars">
+      {arr.map((_, i) => (
         <Star key={i} filled={i < value} />
       ))}
     </div>
   );
 }
 
-export default function ProductCard({ product, onClick }) {
-  const { name, price, rating = 0, image } = product;
+export default function ProductCard({ item, onOpen }) {
+  const title = item.titulo ?? item.name ?? "Sin título";
+  const image =
+    item.imagenUrl ??
+    item.image ??
+    "https://picsum.photos/seed/fallback/640/640";
+  const price = item.precio ?? item.price ?? 0;
+  const rating = Math.round(item.ratingPromedio ?? item.rating ?? 0);
 
   return (
-    <div
+    <article
       className="product-card"
-      role={onClick ? 'button' : undefined}
-      tabIndex={onClick ? 0 : undefined}
-      onClick={onClick}
-      onKeyDown={(e) => {
-        if (!onClick) return;
-        if (e.key === 'Enter' || e.key === ' ') onClick();
-      }}
+      onClick={onOpen}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onOpen()}
     >
       <div className="product-img-wrap">
-        <img src={image} alt={name} className="product-img" loading="lazy" />
+        <img src={image} alt={title} className="product-img" loading="lazy" />
       </div>
-
       <div className="product-info">
-        <div className="product-name" title={name}>
-          {name}
-        </div>
-
+        <h3 className="product-name">{title}</h3>
         <div className="product-meta">
           <Stars value={rating} />
-          <div className="product-price">
-            Precio $ {Number(price).toLocaleString("es-AR")}
-          </div>
+          <span className="product-price">${price.toLocaleString()}</span>
         </div>
       </div>
-    </div>
+    </article>
   );
 }
