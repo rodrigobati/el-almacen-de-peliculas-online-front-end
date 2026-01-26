@@ -2,6 +2,7 @@ import React from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import CatalogPage from "./pages/Catalogo";
+import Carrito from "./pages/Carrito";
 import LoginButton from "./components/LoginButton";
 
 export default function App() {
@@ -17,6 +18,7 @@ export default function App() {
           <main className="app-main">
             <Routes>
               <Route path="/" element={<CatalogPage />} />
+              <Route path="/carrito" element={<Carrito />} />
             </Routes>
           </main>
         </div>

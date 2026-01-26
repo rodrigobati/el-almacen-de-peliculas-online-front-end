@@ -1,10 +1,12 @@
 // src/components/UserMenu.jsx
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { logout, openAccountManagement } from "../services/keycloak";
 
 export default function UserMenu() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
 
   const handleLogout = () => {
@@ -15,6 +17,11 @@ export default function UserMenu() {
   const handleManageAccount = () => {
     setIsOpen(false);
     openAccountManagement();
+  };
+
+  const handleGoToCart = () => {
+    setIsOpen(false);
+    navigate("/carrito");
   };
 
   return (
@@ -34,6 +41,9 @@ export default function UserMenu() {
 
       {isOpen && (
         <div className="dropdown-menu">
+          <button onClick={handleGoToCart} className="dropdown-item">
+            🛒 Mi Carrito
+          </button>
           <button onClick={handleManageAccount} className="dropdown-item">
             👤 Gestionar Cuenta
           </button>
