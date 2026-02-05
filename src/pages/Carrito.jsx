@@ -4,28 +4,33 @@ import { useAuth } from "../contexts/AuthContext";
 import { fetchCarrito, eliminarDelCarrito } from "../api/carrito";
 
 export default function Carrito() {
-  const { user } = useAuth();
+  const { isAuthenticated, keycloak } = useAuth();
   const [carrito, setCarrito] = useState({ items: [], total: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const clienteId = user?.preferred_username;
+  const accessToken = keycloak?.token;
 
   useEffect(() => {
-    if (!clienteId) {
+    if (!isAuthenticated) {
       setLoading(false);
-      setError("Usuario no identificado");
+      return;
+    }
+
+    if (!accessToken) {
+      setLoading(false);
+      setError("No se pudo obtener el token de autenticación");
       return;
     }
 
     loadCarrito();
-  }, [clienteId]);
+  }, [isAuthenticated, accessToken]);
 
   async function loadCarrito() {
     try {
       setLoading(true);
       setError(null);
-      const data = await fetchCarrito(clienteId);
+      const data = await fetchCarrito(accessToken);
       setCarrito(data);
     } catch (err) {
       console.error("Error al cargar carrito:", err);
@@ -41,7 +46,7 @@ export default function Carrito() {
     }
 
     try {
-      const data = await eliminarDelCarrito(clienteId, peliculaId);
+      const data = await eliminarDelCarrito(accessToken, peliculaId);
       setCarrito(data);
     } catch (err) {
       console.error("Error al eliminar:", err);
@@ -55,6 +60,22 @@ export default function Carrito() {
         <div className="container">
           <h2>Mi Carrito</h2>
           <p className="loading-text">Cargando carrito...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="carrito-page">
+        <div className="container">
+          <h2>Mi Carrito</h2>
+          <div className="error-box">
+            <p>Debés iniciar sesión para ver el carrito</p>
+            <button onClick={() => keycloak?.login()} className="btn-primary">
+              Iniciar sesión
+            </button>
+          </div>
         </div>
       </div>
     );

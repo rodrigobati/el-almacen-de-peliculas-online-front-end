@@ -5,12 +5,16 @@ import { API_BASE } from './config.js';
  * Mapea un item del carrito DTO a la forma esperada por la UI.
  */
 function mapItemDTOtoUI(item = {}) {
+  const precioUnitario = Number(item.precioUnitario ?? item.precio ?? 0);
+  const cantidad = Number(item.cantidad ?? item.quantity ?? 1);
+  const subtotal = item.subtotal ?? (precioUnitario * cantidad);
+  
   return {
     peliculaId: item.peliculaId ?? item.id ?? "",
     titulo: item.titulo ?? item.name ?? "",
-    precioUnitario: item.precioUnitario ?? item.precio ?? 0,
-    cantidad: item.cantidad ?? item.quantity ?? 1,
-    subtotal: item.subtotal ?? 0
+    precioUnitario,
+    cantidad,
+    subtotal
   };
 }
 
@@ -25,16 +29,22 @@ function mapCarritoDTOtoUI(dto = {}) {
 }
 
 /**
- * Obtiene el carrito de un cliente.
+ * Obtiene el carrito del usuario autenticado.
+ * @param {string} accessToken - Token JWT de Keycloak
  */
-export async function fetchCarrito(clienteId) {
-  if (!clienteId) {
-    throw new Error("clienteId es requerido");
+export async function fetchCarrito(accessToken) {
+  if (!accessToken) {
+    throw new Error("Usuario no autenticado");
   }
 
-  const url = `${API_BASE}/clientes/${encodeURIComponent(clienteId)}/carrito`;
+  const url = `${API_BASE}/carrito`;
   
-  const res = await fetch(url);
+  const res = await fetch(url, {
+    headers: {
+      "Authorization": `Bearer ${accessToken}`
+    }
+  });
+  
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(text || `HTTP ${res.status}`);
@@ -46,19 +56,18 @@ export async function fetchCarrito(clienteId) {
 
 /**
  * Agrega una película al carrito (o incrementa cantidad si ya existe).
- * 
- * @param {string} clienteId - Identificador del cliente
+ * @param {string} accessToken - Token JWT de Keycloak
  * @param {object} pelicula - Objeto con { peliculaId, titulo, precio, cantidad }
  */
-export async function agregarAlCarrito(clienteId, pelicula) {
-  if (!clienteId) {
-    throw new Error("clienteId es requerido");
+export async function agregarAlCarrito(accessToken, pelicula) {
+  if (!accessToken) {
+    throw new Error("Usuario no autenticado");
   }
   if (!pelicula || !pelicula.peliculaId) {
     throw new Error("peliculaId es requerido");
   }
 
-  const url = `${API_BASE}/clientes/${encodeURIComponent(clienteId)}/carrito/items`;
+  const url = `${API_BASE}/carrito/items`;
   
   const body = {
     peliculaId: pelicula.peliculaId,
@@ -70,6 +79,7 @@ export async function agregarAlCarrito(clienteId, pelicula) {
   const res = await fetch(url, {
     method: "POST",
     headers: {
+      "Authorization": `Bearer ${accessToken}`,
       "Content-Type": "application/json"
     },
     body: JSON.stringify(body)
@@ -86,19 +96,24 @@ export async function agregarAlCarrito(clienteId, pelicula) {
 
 /**
  * Elimina una película del carrito.
+ * @param {string} accessToken - Token JWT de Keycloak
+ * @param {string} peliculaId - ID de la película a eliminar
  */
-export async function eliminarDelCarrito(clienteId, peliculaId) {
-  if (!clienteId) {
-    throw new Error("clienteId es requerido");
+export async function eliminarDelCarrito(accessToken, peliculaId) {
+  if (!accessToken) {
+    throw new Error("Usuario no autenticado");
   }
   if (!peliculaId) {
     throw new Error("peliculaId es requerido");
   }
 
-  const url = `${API_BASE}/clientes/${encodeURIComponent(clienteId)}/carrito/items/${encodeURIComponent(peliculaId)}`;
+  const url = `${API_BASE}/carrito/items/${encodeURIComponent(peliculaId)}`;
   
   const res = await fetch(url, {
-    method: "DELETE"
+    method: "DELETE",
+    headers: {
+      "Authorization": `Bearer ${accessToken}`
+    }
   });
 
   if (!res.ok) {

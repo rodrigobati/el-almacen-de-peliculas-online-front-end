@@ -2,6 +2,9 @@
 import React, { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { agregarAlCarrito } from "../api/carrito";
+import Modal from "./Modal";
+import Toast from "./Toast";
+import { keycloak } from "../services/keycloak";
 
 function Star({ filled = false }) {
   return (
@@ -27,8 +30,15 @@ function Stars({ value = 0 }) {
 }
 
 export default function ProductCard({ item, onOpen }) {
-  const { user } = useAuth();
+  const { isAuthenticated, keycloak } = useAuth();
   const [adding, setAdding] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [toast, setToast] = useState({
+    open: false,
+    title: "",
+    description: "",
+    variant: "success"
+  });
   
   const title = item.titulo ?? item.name ?? "Sin título";
   const image =
@@ -38,63 +48,118 @@ export default function ProductCard({ item, onOpen }) {
   const price = item.precio ?? item.price ?? 0;
   const rating = Math.round(item.ratingPromedio ?? item.rating ?? 0);
 
+  function showToast(variant, title, description = "") {
+    setToast({
+      open: true,
+      title,
+      description,
+      variant
+    });
+  }
+
+  function showSuccess(title, options = {}) {
+    showToast("success", title, options.description ?? "");
+  }
+
+  function showError(title, options = {}) {
+    showToast("error", title, options.description ?? "");
+  }
+
   async function handleAddToCart(e) {
     e.stopPropagation();
     
-    if (!user?.preferred_username) {
-      alert("Debes iniciar sesión para agregar al carrito");
+    if (!isAuthenticated) {
+      setShowLoginModal(true);
+      return;
+    }
+
+    const accessToken = keycloak?.token;
+    if (!accessToken) {
+      showError("No se pudo autenticar", {
+        description: "Volvé a iniciar sesión e intentá de nuevo."
+      });
       return;
     }
 
     try {
       setAdding(true);
-      await agregarAlCarrito(user.preferred_username, {
+      await agregarAlCarrito(accessToken, {
         peliculaId: item.id,
         titulo: title,
         precio: price,
         cantidad: 1
       });
-      alert("✅ Agregado al carrito");
+      showSuccess("Agregado al carrito", {
+        description: "Podés verlo en Carrito."
+      });
     } catch (err) {
       console.error("Error al agregar al carrito:", err);
-      alert(err.message || "Error al agregar al carrito");
+      const errorMessage = err?.message
+        ? `Detalle: ${err.message}`
+        : "Detalle: No se pudo completar la operación.";
+      showError("Error al agregar al carrito", {
+        description: errorMessage
+      });
     } finally {
       setAdding(false);
     }
   }
 
+  function handleLogin() {
+    setShowLoginModal(false);
+    keycloak.login();
+  }
+
   return (
-    <article
-      className="product-card"
-      role="button"
-      tabIndex={0}
-    >
-      <div 
-        className="product-img-wrap"
-        onClick={onOpen}
-        onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onOpen()}
+    <>
+      <article
+        className="product-card"
         role="button"
         tabIndex={0}
       >
-        <img src={image} alt={title} className="product-img" loading="lazy" />
-      </div>
-      <div className="product-info">
-        <h3 className="product-name" onClick={onOpen} style={{ cursor: "pointer" }}>
-          {title}
-        </h3>
-        <div className="product-meta">
-          <Stars value={rating} />
-          <span className="product-price">${price.toLocaleString()}</span>
-        </div>
-        <button
-          onClick={handleAddToCart}
-          disabled={adding}
-          className="btn-add-to-cart"
-          title="Agregar al carrito"
+        <div 
+          className="product-img-wrap"
+          onClick={onOpen}
+          onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onOpen()}
+          role="button"
+          tabIndex={0}
         >
-          {adding ? "Agregando..." : "🛒 Agregar al carrito"}
-        </button>
-      </div>
-    </article>
+          <img src={image} alt={title} className="product-img" loading="lazy" />
+        </div>
+        <div className="product-info">
+          <h3 className="product-name" onClick={onOpen} style={{ cursor: "pointer" }}>
+            {title}
+          </h3>
+          <div className="product-meta">
+            <Stars value={rating} />
+            <span className="product-price">${price.toLocaleString()}</span>
+          </div>
+          <button
+            onClick={handleAddToCart}
+            disabled={adding}
+            className="btn-add-to-cart"
+            title="Agregar al carrito"
+          >
+            {adding ? "Agregando..." : "🛒 Agregar al carrito"}
+          </button>
+        </div>
+      </article>
+
+      <Modal
+        open={showLoginModal}
+        message="Debés iniciar sesión para agregar al carrito"
+        onClose={() => setShowLoginModal(false)}
+        primaryActionLabel="Iniciar sesión"
+        onPrimaryAction={handleLogin}
+      />
+
+      <Toast
+        open={toast.open}
+        title={toast.title}
+        description={toast.description}
+        variant={toast.variant}
+        onClose={() => setToast((current) => ({ ...current, open: false }))}
+      />
+    </>
   );
 }
