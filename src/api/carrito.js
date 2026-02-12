@@ -28,6 +28,25 @@ function mapCarritoDTOtoUI(dto = {}) {
   };
 }
 
+async function parseErrorResponse(res) {
+  const text = await res.text().catch(() => "");
+  let payload = null;
+
+  if (text) {
+    try {
+      payload = JSON.parse(text);
+    } catch (err) {
+      payload = null;
+    }
+  }
+
+  const message = payload?.message || payload?.error || text || `HTTP ${res.status}`;
+  const error = new Error(message);
+  error.status = res.status;
+  error.details = payload;
+  throw error;
+}
+
 /**
  * Obtiene el carrito del usuario autenticado.
  * @param {string} accessToken - Token JWT de Keycloak
@@ -46,8 +65,7 @@ export async function fetchCarrito(accessToken) {
   });
   
   if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(text || `HTTP ${res.status}`);
+    await parseErrorResponse(res);
   }
   
   const json = await res.json();
@@ -86,8 +104,7 @@ export async function agregarAlCarrito(accessToken, pelicula) {
   });
 
   if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(text || `HTTP ${res.status}`);
+    await parseErrorResponse(res);
   }
 
   const json = await res.json();
@@ -117,8 +134,37 @@ export async function eliminarDelCarrito(accessToken, peliculaId) {
   });
 
   if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(text || `HTTP ${res.status}`);
+    await parseErrorResponse(res);
+  }
+
+  const json = await res.json();
+  return mapCarritoDTOtoUI(json);
+}
+
+/**
+ * Decrementa una unidad de una película en el carrito.
+ * @param {string} accessToken - Token JWT de Keycloak
+ * @param {string} peliculaId - ID de la película a decrementar
+ */
+export async function decrementarDelCarrito(accessToken, peliculaId) {
+  if (!accessToken) {
+    throw new Error("Usuario no autenticado");
+  }
+  if (!peliculaId) {
+    throw new Error("peliculaId es requerido");
+  }
+
+  const url = `${API_BASE}/carrito/items/${encodeURIComponent(peliculaId)}/decrement`;
+
+  const res = await fetch(url, {
+    method: "PATCH",
+    headers: {
+      "Authorization": `Bearer ${accessToken}`
+    }
+  });
+
+  if (!res.ok) {
+    await parseErrorResponse(res);
   }
 
   const json = await res.json();

@@ -94,8 +94,9 @@ export default function ProductCard({ item, onOpen }) {
       });
     } catch (err) {
       console.error("Error al agregar al carrito:", err);
-      const errorMessage = err?.message
-        ? `Detalle: ${err.message}`
+      const detailsMessage = err?.details?.message || err?.message;
+      const errorMessage = detailsMessage
+        ? `Detalle: ${detailsMessage}`
         : "Detalle: No se pudo completar la operación.";
       showError("Error al agregar al carrito", {
         description: errorMessage
