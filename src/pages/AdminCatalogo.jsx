@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import Toast from "../components/Toast";
 import ConfirmModal from "../components/ConfirmModal";
@@ -10,6 +10,8 @@ import {
   updateMovie,
   retireMovie
 } from "../api/catalogoAdmin";
+import { searchMovies } from "../api/movies";
+import { emitDevEvent } from "../utils/devDiagnostics";
 
 export default function AdminCatalogo() {
   const { keycloak } = useAuth();
@@ -32,6 +34,8 @@ export default function AdminCatalogo() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [toRetire, setToRetire] = useState(null);
   const [retiredIds, setRetiredIds] = useState(() => new Set());
+  const isDev = import.meta.env?.DEV;
+  const toastIdRef = useRef(0);
 
   const accessToken = keycloak?.token;
 
@@ -40,20 +44,169 @@ export default function AdminCatalogo() {
   const statusFor = (id) => (retiredIds.has(id) ? "Retirada" : "Activa");
 
   const showToast = (variant, title, description = "") => {
+    const toastId = `toast-${Date.now()}-${++toastIdRef.current}`;
+    if (isDev) {
+      console.log("TOAST_TRIGGER", { toastId, variant, title, description });
+      console.trace("TOAST_TRACE", toastId);
+    }
     setToast({ open: true, title, description, variant });
+  };
+
+  const normalizeError = (err, context) => {
+    const message = String(err?.message || "");
+    const name = String(err?.name || "");
+    const status = err?.status;
+    const contextInfo = err?.context?.url
+      ? `${context} (${err.context.method || "GET"} ${err.context.url})`
+      : context;
+    const isNetworkError =
+      /failed to fetch|networkerror|load failed|cors/i.test(message) ||
+      (name === "TypeError" && !Number.isFinite(status));
+    const normalizedMessage = message || `Error desconocido (${contextInfo})`;
+    const finalMessage = isNetworkError
+      ? `Error de red / ${normalizedMessage} (${contextInfo})`
+      : normalizedMessage || `Error desconocido (${contextInfo})`;
+
+    return {
+      isNetworkError,
+      isHttpError: Number.isFinite(status),
+      message: finalMessage
+    };
   };
 
   const loadMovies = async () => {
     setLoading(true);
     try {
+      if (isDev) {
+        console.log("LOAD_MOVIES_START", { query, page, size });
+      }
       const data = await listMovies({ q: query, page, size, sort: "fechaSalida", asc: false });
       setItems(Array.isArray(data.items) ? data.items : []);
       setTotal(Number.isFinite(data.total) ? data.total : 0);
+      if (isDev) {
+        console.log("LOAD_MOVIES_OK", { total: data.total, items: data.items?.length });
+      }
     } catch (err) {
+      if (isDev) {
+        console.error("LOAD_MOVIES_FAIL", err);
+      }
       console.error("Error cargando peliculas:", err);
       showToast("error", "No se pudo cargar el catalogo", err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const runDevVerification = async () => {
+    if (!isDev) {
+      return;
+    }
+
+    emitDevEvent("DEV_VERIFY_START", { source: "AdminCatalogo" });
+
+    try {
+      const page0 = await searchMovies({ page: 0, size, sort: "fechaSalida", asc: false });
+      emitDevEvent("PUBLIC_PAGE_FETCH_OK", {
+        source: "DEV_VERIFY",
+        page: 0,
+        size,
+        status: page0.status,
+        total: page0.total,
+        itemsLength: page0.items?.length ?? 0,
+      });
+    } catch (err) {
+      emitDevEvent("PUBLIC_PAGE_FETCH_FAIL", {
+        source: "DEV_VERIFY",
+        page: 0,
+        size,
+        error: err?.message || String(err),
+      });
+    }
+
+    try {
+      const page1 = await searchMovies({ page: 1, size, sort: "fechaSalida", asc: false });
+      emitDevEvent("PUBLIC_PAGE_FETCH_OK", {
+        source: "DEV_VERIFY",
+        page: 1,
+        size,
+        status: page1.status,
+        total: page1.total,
+        itemsLength: page1.items?.length ?? 0,
+      });
+    } catch (err) {
+      emitDevEvent("PUBLIC_PAGE_FETCH_FAIL", {
+        source: "DEV_VERIFY",
+        page: 1,
+        size,
+        error: err?.message || String(err),
+      });
+    }
+
+    if (!accessToken) {
+      emitDevEvent("ADMIN_SAVE_FAIL", {
+        source: "DEV_VERIFY",
+        reason: "missing-access-token",
+      });
+      showToast("error", "Sesion requerida", "Volvé a iniciar sesión.");
+      return;
+    }
+
+    const uniqueTitle = `DEV-VERIFY-${Date.now()}`;
+    const payload = {
+      titulo: uniqueTitle,
+      condicion: "nuevo",
+      directoresIds: [1],
+      precio: 1234,
+      formato: "DVD",
+      genero: "Drama",
+      sinopsis: "diagnostic verification payload",
+      actoresIds: [3],
+      imagenUrl: "https://example.com/dev-verify.jpg",
+      fechaSalida: "2020-01-01",
+      rating: 5,
+    };
+
+    try {
+      const saveResult = await createMovie(accessToken, payload);
+      emitDevEvent("ADMIN_SAVE_OK", {
+        source: "DEV_VERIFY",
+        status: saveResult?.status,
+        ok: saveResult?.ok,
+        title: uniqueTitle,
+      });
+      showToast("success", "Verificacion DEV: guardado OK", `status=${saveResult?.status}`);
+    } catch (err) {
+      emitDevEvent("ADMIN_SAVE_FAIL", {
+        source: "DEV_VERIFY",
+        message: err?.message || String(err),
+        status: err?.status,
+      });
+      showToast("error", "Verificacion DEV: fallo guardado", err?.message || String(err));
+      return;
+    }
+
+    try {
+      const refreshed = await listMovies({ q: query, page, size, sort: "fechaSalida", asc: false });
+      setItems(Array.isArray(refreshed.items) ? refreshed.items : []);
+      setTotal(Number.isFinite(refreshed.total) ? refreshed.total : 0);
+      emitDevEvent("ADMIN_REFRESH_OK", {
+        source: "DEV_VERIFY",
+        page,
+        size,
+        total: refreshed.total,
+        itemsLength: refreshed.items?.length ?? 0,
+        status: refreshed.status,
+      });
+    } catch (err) {
+      emitDevEvent("ADMIN_REFRESH_FAIL", {
+        source: "DEV_VERIFY",
+        message: err?.message || String(err),
+      });
+      showToast(
+        "error",
+        "Guardado OK, pero no se pudo refrescar el catálogo",
+        err?.message || String(err)
+      );
     }
   };
 
@@ -99,22 +252,102 @@ export default function AdminCatalogo() {
     }
 
     setPending(true);
+    if (isDev) {
+      console.log("SAVE_CALL_START", { mode: formMode, hasId: Boolean(formData?.id) });
+    }
     try {
       if (formMode === "create") {
-        await createMovie(accessToken, payload);
+        const result = await createMovie(accessToken, payload);
+        emitDevEvent("ADMIN_SAVE_OK", {
+          source: "USER_ACTION",
+          operation: "create",
+          status: result?.status,
+          ok: result?.ok,
+        });
         showToast("success", "Pelicula creada", "Se agrego al catalogo.");
       } else if (formMode === "edit" && formData?.id) {
-        await updateMovie(accessToken, formData.id, payload);
+        const result = await updateMovie(accessToken, formData.id, payload);
+        emitDevEvent("ADMIN_SAVE_OK", {
+          source: "USER_ACTION",
+          operation: "update",
+          status: result?.status,
+          ok: result?.ok,
+          id: formData.id,
+        });
         showToast("success", "Pelicula actualizada", "Cambios guardados.");
       }
       setFormOpen(false);
       setFormData(null);
-      await loadMovies();
+      if (isDev) {
+        console.log("SAVE_CALL_OK");
+      }
     } catch (err) {
+      if (isDev) {
+        console.error("SAVE_CALL_FAIL", {
+          name: err?.name,
+          message: err?.message,
+          status: err?.status,
+          context: err?.context
+        });
+      }
+      emitDevEvent("ADMIN_SAVE_FAIL", {
+        source: "USER_ACTION",
+        operation: formMode,
+        message: err?.message || String(err),
+        status: err?.status,
+      });
       console.error("Error guardando pelicula:", err);
-      showToast("error", "No se pudo guardar", err.message);
+      const normalized = normalizeError(err, "guardar");
+      let title = "No se pudo guardar";
+      let description = normalized.message;
+
+      if (normalized.isNetworkError) {
+        title = "No se pudo confirmar el guardado";
+        description = `El POST pudo haberse procesado, pero el navegador no pudo leer la respuesta. ${normalized.message}`;
+      } else if (!normalized.isHttpError) {
+        title = "Error inesperado al guardar";
+        description = normalized.message;
+      }
+      showToast("error", title, description);
+      return;
     } finally {
       setPending(false);
+    }
+
+    try {
+      if (isDev) {
+        console.log("REFRESH_START");
+      }
+      await loadMovies();
+      emitDevEvent("ADMIN_REFRESH_OK", {
+        source: "USER_ACTION",
+        afterOperation: formMode,
+      });
+      if (isDev) {
+        console.log("REFRESH_OK");
+      }
+    } catch (err) {
+      if (isDev) {
+        console.error("REFRESH_FAIL", {
+          name: err?.name,
+          message: err?.message,
+          status: err?.status,
+          context: err?.context
+        });
+      }
+      emitDevEvent("ADMIN_REFRESH_FAIL", {
+        source: "USER_ACTION",
+        afterOperation: formMode,
+        message: err?.message || String(err),
+        status: err?.status,
+      });
+      console.error("Error refrescando catalogo:", err);
+      const normalized = normalizeError(err, "refrescar catalogo");
+      showToast(
+        "error",
+        "Guardado OK, pero no se pudo refrescar el catalogo",
+        normalized.message
+      );
     }
   };
 
@@ -182,6 +415,11 @@ export default function AdminCatalogo() {
           <button className="btn admin-add" onClick={handleAdd}>
             + Agregar pelicula
           </button>
+          {isDev ? (
+            <button className="btn-secondary" onClick={runDevVerification}>
+              Run verification (DEV)
+            </button>
+          ) : null}
         </div>
       </header>
 

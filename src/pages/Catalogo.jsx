@@ -1,15 +1,18 @@
 // src/pages/Catalogo.jsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import ProductCard from "../components/ProductCard";
 import CategoryFilter from "../components/CategoryFilter";
 import { searchMovies, fetchCategories } from "../api/movies";
 import Reviews from "../pages/Reviews";
+import { emitDevEvent } from "../utils/devDiagnostics";
 
 export default function CatalogPage() {
+  const BUILD_TAG = "CATALOGO-DBG-2026-02-14T03";
+  const DEFAULT_PAGE_SIZE = 4;
   const [qRaw, setQRaw] = useState("");
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(0);
-  const [size, setSize] = useState(12);
+  const [pageSize] = useState(DEFAULT_PAGE_SIZE);
   const [total, setTotal] = useState(0);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -53,20 +56,30 @@ export default function CatalogPage() {
       setLoading(true);
       setError(null);
       try {
-        // Temporalmente no enviamos categoryId al backend hasta que se arregle
-        const data = await searchMovies({ q: query, page, size });
+        const data = await searchMovies({ q: query, page, size: pageSize, sort: "fechaSalida", dir: "desc", categoryId });
         if (!ignore) {
-          let filteredItems = data.items || [];
+          const normalizedItems = Array.isArray(data.items) ? data.items : [];
+          const normalizedTotal = Number.isFinite(data.total) ? data.total : 0;
+          const normalizedPage = Number.isFinite(data.page) && data.page >= 0 ? data.page : 0;
 
-          // Filtro temporal del lado del cliente hasta que se arregle el backend
-          if (categoryId) {
-            filteredItems = filteredItems.filter(
-              (item) => item.genero === categoryId
-            );
+          setItems(normalizedItems);
+          setTotal(normalizedTotal);
+          if (normalizedPage !== page) {
+            setPage(normalizedPage);
           }
 
-          setItems(filteredItems);
-          setTotal(filteredItems.length);
+          if (import.meta.env.DEV) {
+            emitDevEvent("CATALOGO_STATE_APPLIED", {
+              query,
+              categoryId: categoryId ?? null,
+              requestedPage: page,
+              appliedPage: normalizedPage,
+              pageSize,
+              total: normalizedTotal,
+              totalPages: Math.max(1, Math.ceil(normalizedTotal / pageSize)),
+              itemsLength: normalizedItems.length,
+            });
+          }
         }
       } catch (e) {
         if (!ignore) setError(String(e));
@@ -78,15 +91,31 @@ export default function CatalogPage() {
     return () => {
       ignore = true;
     };
-  }, [query, page, size, categoryId]);
+  }, [query, page, pageSize, categoryId]);
 
-  const pages = Math.max(1, Math.ceil(total / size));
+  const pages = Math.max(1, Math.ceil(total / pageSize));
+
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      console.log("CATALOGO_RUNTIME_STATE", {
+        buildTag: BUILD_TAG,
+        page,
+        pageSize,
+        total,
+        calculatedPages: Math.ceil(total / pageSize),
+        itemsLength: items.length,
+      });
+    }
+  }, [BUILD_TAG, page, pageSize, total, items.length]);
 
   return (
     <div>
       <header className="topbar">
         <div className="container row">
           <h2>Catálogo</h2>
+          <small style={{ marginLeft: 12, color: "var(--text-muted)" }}>
+            {BUILD_TAG}
+          </small>
           <div className="grow">
             <input
               value={qRaw}
@@ -140,9 +169,9 @@ export default function CatalogPage() {
         {!loading && !error && (
           <>
             <div className="grid">
-              {items.map((it, idx) => (
+              {items.map((it) => (
                 <ProductCard
-                  key={idx}
+                  key={it.id ?? `${it.titulo}-${it.fechaSalida}`}
                   item={it}
                   onOpen={() => setSelected(it)}
                 />
