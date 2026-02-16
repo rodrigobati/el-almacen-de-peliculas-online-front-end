@@ -507,6 +507,7 @@ export default function AdminCatalogo() {
         open={formOpen}
         mode={formMode}
         initialData={formData}
+        accessToken={accessToken}
         submitting={pending}
         onClose={() => setFormOpen(false)}
         onSubmit={handleSubmit}

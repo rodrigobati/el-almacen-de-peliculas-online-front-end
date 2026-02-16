@@ -1308,6 +1308,7 @@ box-shadow: 0 8px 25px rgba(155, 89, 182, 0.3);
   flex-direction: column;
   gap: 0.4rem;
   font-size: 0.9rem;
+  position: relative;
 }
 
 .admin-field input,
@@ -1330,6 +1331,84 @@ box-shadow: 0 8px 25px rgba(155, 89, 182, 0.3);
 
 .admin-field-full {
   grid-column: 1 / -1;
+}
+
+.selector-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.btn-small {
+  padding: 0.35rem 0.65rem;
+  font-size: 0.8rem;
+}
+
+.selector-results {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 6px);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 8px;
+  z-index: 1200;
+  max-height: 220px;
+  overflow: auto;
+  display: block;
+}
+
+.selector-item {
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.selector-item:hover {
+  border-color: var(--accent);
+  background: var(--card-hover);
+}
+
+.selector-item--selected {
+  border-color: var(--accent);
+  background: rgba(6, 182, 212, 0.18);
+}
+
+.selected-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.selected-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(6, 182, 212, 0.12);
+  padding: 0.3rem 0.65rem;
+  font-size: 0.85rem;
+}
+
+.chip-remove {
+  border: none;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.inline-create-modal {
+  width: min(460px, 92vw);
 }
 
 .field-error {
@@ -1533,6 +1612,10 @@ box-shadow: 0 8px 25px rgba(155, 89, 182, 0.3);
   z-index: 1000;
   padding: 1rem;
   animation: fadeIn 0.2s ease-out;
+}
+
+.modal-overlay--nested {
+  z-index: 2000;
 }
 
 @keyframes fadeIn {

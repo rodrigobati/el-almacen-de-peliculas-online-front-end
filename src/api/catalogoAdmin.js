@@ -287,3 +287,224 @@ export async function retireMovie(accessToken, id) {
     skippedBodyParse: true,
   };
 }
+
+export async function fetchDirectores(accessToken, { q = "", page, size } = {}) {
+  if (!accessToken) {
+    throw new Error("Usuario no autenticado");
+  }
+
+  const params = new URLSearchParams();
+  if (q?.trim()) params.set("q", q.trim());
+  if (Number.isInteger(page) && page >= 0) params.set("page", String(page));
+  if (Number.isInteger(size) && size > 0) params.set("size", String(size));
+
+  const query = params.toString();
+  const url = query
+    ? `${API_BASE}/admin/directores?${query}`
+    : `${API_BASE}/admin/directores`;
+  const context = { url, method: "GET" };
+
+  let res;
+  try {
+    res = await fetch(url, {
+      headers: {
+        "Authorization": `Bearer ${accessToken}`
+      }
+    });
+  } catch (err) {
+    rewrapNetworkErrorIfNeeded(err, context);
+    err.context = context;
+    throw err;
+  }
+
+  if (!res.ok) {
+    await parseErrorResponse(res, context);
+  }
+
+  return res.json();
+}
+
+export async function createDirector(accessToken, payload) {
+  if (!accessToken) {
+    throw new Error("Usuario no autenticado");
+  }
+
+  const url = `${API_BASE}/admin/directores`;
+  const context = { url, method: "POST" };
+
+  let res;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+  } catch (err) {
+    rewrapNetworkErrorIfNeeded(err, context);
+    err.context = context;
+    throw err;
+  }
+
+  if (!res.ok) {
+    await parseErrorResponse(res, context);
+  }
+
+  return res.json();
+}
+
+export async function fetchActores(accessToken, { q = "", page, size } = {}) {
+  if (!accessToken) {
+    throw new Error("Usuario no autenticado");
+  }
+
+  const params = new URLSearchParams();
+  if (q?.trim()) params.set("q", q.trim());
+  if (Number.isInteger(page) && page >= 0) params.set("page", String(page));
+  if (Number.isInteger(size) && size > 0) params.set("size", String(size));
+
+  const query = params.toString();
+  const url = query
+    ? `${API_BASE}/admin/actores?${query}`
+    : `${API_BASE}/admin/actores`;
+  const context = { url, method: "GET" };
+
+  let res;
+  try {
+    res = await fetch(url, {
+      headers: {
+        "Authorization": `Bearer ${accessToken}`
+      }
+    });
+  } catch (err) {
+    rewrapNetworkErrorIfNeeded(err, context);
+    err.context = context;
+    throw err;
+  }
+
+  if (!res.ok) {
+    await parseErrorResponse(res, context);
+  }
+
+  return res.json();
+}
+
+export async function createActor(accessToken, payload) {
+  if (!accessToken) {
+    throw new Error("Usuario no autenticado");
+  }
+
+  const url = `${API_BASE}/admin/actores`;
+  const context = { url, method: "POST" };
+
+  let res;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+  } catch (err) {
+    rewrapNetworkErrorIfNeeded(err, context);
+    err.context = context;
+    throw err;
+  }
+
+  if (!res.ok) {
+    await parseErrorResponse(res, context);
+  }
+
+  return res.json();
+}
+
+export async function fetchGeneros(accessToken, { q = "", page = 0, size = 15 } = {}) {
+  const url = `${API_BASE}/categorias`;
+  const context = { url, method: "GET" };
+
+  let res;
+  try {
+    res = await fetch(url, {
+      headers: accessToken
+        ? {
+            "Authorization": `Bearer ${accessToken}`
+          }
+        : undefined
+    });
+  } catch (err) {
+    rewrapNetworkErrorIfNeeded(err, context);
+    err.context = context;
+    throw err;
+  }
+
+  if (!res.ok) {
+    await parseErrorResponse(res, context);
+  }
+
+  const payload = await res.json();
+  const normalizedQuery = String(q || "").trim().toLowerCase();
+  const source = Array.isArray(payload) ? payload : [];
+  const names = source
+    .map((item) => (typeof item === "string" ? item : String(item?.nombre || item?.titulo || "")))
+    .map((name) => name.trim())
+    .filter((name) => name.length > 0)
+    .filter((name) => !normalizedQuery || name.toLowerCase().includes(normalizedQuery));
+
+  const start = Math.max(0, Number(page) || 0) * Math.max(1, Number(size) || 15);
+  const end = start + Math.max(1, Number(size) || 15);
+  return names.slice(start, end);
+}
+
+export async function fetchFormatos(accessToken, { q = "", page = 0, size = 15 } = {}) {
+  const params = new URLSearchParams({
+    page: "0",
+    size: "200",
+    sort: "titulo",
+    asc: "true",
+  });
+
+  const url = `${API_BASE}/peliculas?${params.toString()}`;
+  const context = { url, method: "GET" };
+
+  let res;
+  try {
+    res = await fetch(url, {
+      headers: accessToken
+        ? {
+            "Authorization": `Bearer ${accessToken}`
+          }
+        : undefined
+    });
+  } catch (err) {
+    rewrapNetworkErrorIfNeeded(err, context);
+    err.context = context;
+    throw err;
+  }
+
+  if (!res.ok) {
+    await parseErrorResponse(res, context);
+  }
+
+  const payload = await res.json();
+  const items = Array.isArray(payload?.items) ? payload.items : [];
+  const normalizedQuery = String(q || "").trim().toLowerCase();
+
+  const unique = new Map();
+  for (const item of items) {
+    const raw = String(item?.formato || item?.formatoNombre || "").trim();
+    if (!raw) continue;
+    const key = raw.toLowerCase();
+    if (!normalizedQuery || key.includes(normalizedQuery)) {
+      if (!unique.has(key)) unique.set(key, raw);
+    }
+  }
+
+  const names = Array.from(unique.values()).sort((a, b) => a.localeCompare(b, "es"));
+  const start = Math.max(0, Number(page) || 0) * Math.max(1, Number(size) || 15);
+  const end = start + Math.max(1, Number(size) || 15);
+  return names.slice(start, end);
+}
