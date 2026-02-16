@@ -1,29 +1,47 @@
 // src/api/movies.js
 import { API_BASE } from './config.js';
+import { emitDevEvent } from '../utils/devDiagnostics.js';
 
-/**
- * Adapta cualquier payload común a la forma { items, total }
- */
-function adaptPagePayload(data) {
-  if (!data) return { items: [], total: 0 };
+function toFiniteNumber(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
 
-  // Caso 1: ya viene en el formato de la UI
-  if (Array.isArray(data.items) && typeof data.total === "number") {
-    return data;
+function toNonNegativeInteger(value, fallback) {
+  const n = toFiniteNumber(value);
+  if (n == null) {
+    return fallback;
   }
-  // Caso 2: Spring Data Page
-  if (Array.isArray(data.content) && typeof data.totalElements === "number") {
-    return { items: data.content, total: data.totalElements };
+  return Math.max(0, Math.trunc(n));
+}
+
+function toPositiveInteger(value, fallback) {
+  const n = toFiniteNumber(value);
+  if (n == null || n <= 0) {
+    return fallback;
   }
-  // Caso 3: otros convencionales
-  if (Array.isArray(data.results) && typeof data.count === "number") {
-    return { items: data.results, total: data.count };
-  }
-  // Caso 4: lista simple sin total
-  if (Array.isArray(data)) {
-    return { items: data, total: data.length };
-  }
-  return { items: [], total: 0 };
+  return Math.max(1, Math.trunc(n));
+}
+
+function adaptPagePayload(data, requestedPage = 0, requestedSize = 12) {
+  const items = Array.isArray(data?.items)
+    ? data.items
+    : Array.isArray(data?.content)
+      ? data.content
+      : [];
+
+  const total = toNonNegativeInteger(data?.total ?? data?.totalElements, 0);
+
+  const page = toNonNegativeInteger(data?.page ?? data?.number, toNonNegativeInteger(requestedPage, 0));
+
+  const size = toPositiveInteger(data?.size, toPositiveInteger(requestedSize, 1));
+
+  const backendTotalPages = toFiniteNumber(data?.totalPages);
+  const totalPages = Number.isFinite(backendTotalPages) && backendTotalPages > 0
+    ? Math.max(1, backendTotalPages)
+    : Math.max(1, Math.ceil(total / size));
+
+  return { items, total, page, size, totalPages };
 }
 
 /**
@@ -50,29 +68,154 @@ function mapDTOtoUI(p = {}) {
 }
 
 export async function searchMovies({ q = "", page = 0, size = 12, sort = "fechaSalida", dir = "desc", categoryId } = {}) {
-  const params = new URLSearchParams({ q, page, size, sort, dir });
+  const normalizedDir = String(dir).toLowerCase() === "asc" ? "asc" : "desc";
+  const normalizedPage = toNonNegativeInteger(page, 0);
+  const normalizedSize = toPositiveInteger(size, 12);
+  const normalizedQuery = String(q ?? "").trim();
+  const params = new URLSearchParams();
+  params.set("q", normalizedQuery);
+  params.set("page", String(normalizedPage));
+  params.set("size", String(normalizedSize));
+  params.set("sort", String(sort ?? "fechaSalida"));
+  params.set("dir", normalizedDir);
   
-  // Solo usar categoryId ya que funciona con el backend
+  // El backend espera el filtro por género con el parámetro "genero"
   if (categoryId != null && categoryId !== "") {
-    params.set("categoryId", String(categoryId));
+    params.set("genero", String(categoryId));
   }
 
   const url = `${API_BASE}/peliculas?${params.toString()}`;
+  const isDev = import.meta.env?.DEV;
+
+  if (isDev) {
+    console.log("SEARCH_MOVIES_FINAL_URL", url);
+  }
+
+  if (isDev) {
+    emitDevEvent("FETCH_MOVIES_REQUEST_START", {
+      url,
+      params: Object.fromEntries(params.entries()),
+      page: normalizedPage,
+      size: normalizedSize,
+      sort,
+      dir: normalizedDir,
+      genero: categoryId ?? null,
+      q: normalizedQuery,
+    });
+  }
   
-  const res = await fetch(url);
+  let res;
+  try {
+    res = await fetch(url);
+  } catch (err) {
+    if (isDev) {
+      emitDevEvent("FETCH_MOVIES_REQUEST_ERROR", {
+        url,
+        page: normalizedPage,
+        size: normalizedSize,
+        error: err?.message || String(err),
+      });
+    }
+    throw err;
+  }
+
   if (!res.ok) {
     const text = await res.text().catch(() => "");
+    if (isDev) {
+      emitDevEvent("FETCH_MOVIES_RESPONSE_ERROR", {
+        url,
+        page: normalizedPage,
+        size: normalizedSize,
+        status: res.status,
+        message: text || `HTTP ${res.status}`,
+      });
+    }
     throw new Error(text || `HTTP ${res.status}`);
   }
   const json = await res.json();
-  const { items, total } = adaptPagePayload(json);
-  return { items: items.map(mapDTOtoUI), total };
+  const { items, total, totalPages, page: responsePage, size: responseSize } = adaptPagePayload(json, normalizedPage, normalizedSize);
+
+  if (isDev) {
+    emitDevEvent("FETCH_MOVIES_RESPONSE_OK", {
+      url,
+      status: res.status,
+      payloadShape: {
+        hasContent: Array.isArray(json?.content),
+        hasItems: Array.isArray(json?.items),
+        hasTotalElements: Object.prototype.hasOwnProperty.call(json ?? {}, 'totalElements'),
+        hasTotal: Object.prototype.hasOwnProperty.call(json ?? {}, 'total'),
+        hasNumber: Object.prototype.hasOwnProperty.call(json ?? {}, 'number'),
+        hasPage: Object.prototype.hasOwnProperty.call(json ?? {}, 'page'),
+        hasTotalPages: Object.prototype.hasOwnProperty.call(json ?? {}, 'totalPages'),
+      },
+      normalized: {
+        requestedPage: normalizedPage,
+        requestedSize: normalizedSize,
+        page: responsePage,
+        size: responseSize,
+        total,
+        totalPages,
+        itemsLength: Array.isArray(items) ? items.length : 0,
+      },
+      total,
+      totalPages,
+      page: responsePage,
+      size: responseSize,
+    });
+
+    console.log("SEARCH_MOVIES_NORMALIZED_OUTPUT", {
+      requestedPage: normalizedPage,
+      requestedSize: normalizedSize,
+      page: responsePage,
+      size: responseSize,
+      total,
+      totalPages,
+      itemsLength: Array.isArray(items) ? items.length : 0,
+    });
+  }
+
+  return {
+    items: items.map(mapDTOtoUI),
+    total,
+    totalPages,
+    page: responsePage,
+    size: responseSize,
+    status: res.status,
+  };
 }
 
 export async function fetchCategories() {
-  const res = await fetch(`${API_BASE}/categorias`);
+  const url = `${API_BASE}/categorias`;
+  const isDev = import.meta.env?.DEV;
+
+  if (isDev) {
+    console.log("FETCH_CATEGORIES_START", { url });
+  }
+
+  let res;
+  try {
+    res = await fetch(url);
+  } catch (err) {
+    if (isDev) {
+      console.error("FETCH_CATEGORIES_FETCH_ERROR", {
+        name: err?.name,
+        message: err?.message,
+        url
+      });
+    }
+    err.context = { url, method: "GET" };
+    throw err;
+  }
+
   if (!res.ok) {
     const text = await res.text().catch(() => "");
+    if (isDev) {
+      console.error("FETCH_CATEGORIES_HTTP_ERROR", {
+        status: res.status,
+        url,
+        message: text || `HTTP ${res.status}`
+      });
+    }
     throw new Error(text || `HTTP ${res.status}`);
   }
   const cats = await res.json();

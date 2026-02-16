@@ -20,6 +20,7 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const isDev = import.meta.env?.DEV;
 
   useEffect(() => {
     let isMounted = true; // Flag para evitar actualizaciones si el componente se desmonta
@@ -55,10 +56,22 @@ export const AuthProvider = ({ children }) => {
     keycloak.onAuthSuccess = updateAuth;
     keycloak.onAuthLogout = updateAuth;
     keycloak.onTokenExpired = () => {
-      keycloak.updateToken(30).catch(() => {
-        setIsAuthenticated(false);
-        setUser(null);
-      });
+      if (isDev) {
+        console.log("TOKEN_REFRESH_START");
+      }
+      keycloak.updateToken(30)
+        .then(() => {
+          if (isDev) {
+            console.log("TOKEN_REFRESH_OK");
+          }
+        })
+        .catch(() => {
+          if (isDev) {
+            console.error("TOKEN_REFRESH_FAIL");
+          }
+          setIsAuthenticated(false);
+          setUser(null);
+        });
     };
 
     return () => {
