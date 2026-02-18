@@ -1,6 +1,34 @@
 // src/api/carrito.js
 import { API_BASE } from './config.js';
 
+function readClienteId() {
+  try {
+    return localStorage.getItem("clienteId") || "";
+  } catch {
+    return "";
+  }
+}
+
+function buildAuthHeaders(accessToken, method = "GET") {
+  const headers = {};
+  const hasToken = Boolean(accessToken);
+  const clienteId = readClienteId();
+
+  if (method.toUpperCase() === "POST") {
+    headers["Content-Type"] = "application/json";
+  }
+
+  if (hasToken) {
+    headers.Authorization = `Bearer ${accessToken}`;
+  }
+
+  if ((import.meta.env.DEV || !hasToken) && clienteId) {
+    headers["X-Cliente-Id"] = clienteId;
+  }
+
+  return headers;
+}
+
 /**
  * Mapea un item del carrito DTO a la forma esperada por la UI.
  */
@@ -52,16 +80,10 @@ async function parseErrorResponse(res) {
  * @param {string} accessToken - Token JWT de Keycloak
  */
 export async function fetchCarrito(accessToken) {
-  if (!accessToken) {
-    throw new Error("Usuario no autenticado");
-  }
-
   const url = `${API_BASE}/carrito`;
   
   const res = await fetch(url, {
-    headers: {
-      "Authorization": `Bearer ${accessToken}`
-    }
+    headers: buildAuthHeaders(accessToken)
   });
   
   if (!res.ok) {
@@ -78,9 +100,6 @@ export async function fetchCarrito(accessToken) {
  * @param {object} pelicula - Objeto con { peliculaId, titulo, precio, cantidad }
  */
 export async function agregarAlCarrito(accessToken, pelicula) {
-  if (!accessToken) {
-    throw new Error("Usuario no autenticado");
-  }
   if (!pelicula || !pelicula.peliculaId) {
     throw new Error("peliculaId es requerido");
   }
@@ -96,10 +115,7 @@ export async function agregarAlCarrito(accessToken, pelicula) {
 
   const res = await fetch(url, {
     method: "POST",
-    headers: {
-      "Authorization": `Bearer ${accessToken}`,
-      "Content-Type": "application/json"
-    },
+    headers: buildAuthHeaders(accessToken, "POST"),
     body: JSON.stringify(body)
   });
 
@@ -117,9 +133,6 @@ export async function agregarAlCarrito(accessToken, pelicula) {
  * @param {string} peliculaId - ID de la película a eliminar
  */
 export async function eliminarDelCarrito(accessToken, peliculaId) {
-  if (!accessToken) {
-    throw new Error("Usuario no autenticado");
-  }
   if (!peliculaId) {
     throw new Error("peliculaId es requerido");
   }
@@ -128,9 +141,7 @@ export async function eliminarDelCarrito(accessToken, peliculaId) {
   
   const res = await fetch(url, {
     method: "DELETE",
-    headers: {
-      "Authorization": `Bearer ${accessToken}`
-    }
+    headers: buildAuthHeaders(accessToken)
   });
 
   if (!res.ok) {
@@ -147,9 +158,6 @@ export async function eliminarDelCarrito(accessToken, peliculaId) {
  * @param {string} peliculaId - ID de la película a decrementar
  */
 export async function decrementarDelCarrito(accessToken, peliculaId) {
-  if (!accessToken) {
-    throw new Error("Usuario no autenticado");
-  }
   if (!peliculaId) {
     throw new Error("peliculaId es requerido");
   }
@@ -158,9 +166,7 @@ export async function decrementarDelCarrito(accessToken, peliculaId) {
 
   const res = await fetch(url, {
     method: "PATCH",
-    headers: {
-      "Authorization": `Bearer ${accessToken}`
-    }
+    headers: buildAuthHeaders(accessToken)
   });
 
   if (!res.ok) {

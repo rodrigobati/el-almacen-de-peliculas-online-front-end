@@ -3,6 +3,8 @@ import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import CatalogPage from "./pages/Catalogo";
 import Carrito from "./pages/Carrito";
+import Compras from "./pages/Compras";
+import CompraDetalle from "./pages/CompraDetalle";
 import AdminCatalogo from "./pages/AdminCatalogo";
 import LoginButton from "./components/LoginButton";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -20,11 +22,12 @@ function AppLayout() {
               🛠 Admin
             </Link>
           )}
-          {!loading && isAuthenticated && (
-            <Link to="/carrito" className="nav-cart-btn">
-              🛒 Carrito
-            </Link>
-          )}
+          <Link to="/carrito" className="nav-cart-btn">
+            🛒 Carrito
+          </Link>
+          <Link to="/compras" className="nav-cart-btn">
+            📦 Compras
+          </Link>
           <LoginButton />
         </div>
       </header>
@@ -40,14 +43,9 @@ function AppLayout() {
               </ProtectedRoute>
             }
           />
-          <Route
-            path="/carrito"
-            element={
-              <ProtectedRoute>
-                <Carrito />
-              </ProtectedRoute>
-            }
-          />
+          <Route path="/carrito" element={<Carrito />} />
+          <Route path="/compras" element={<Compras />} />
+          <Route path="/compras/:id" element={<CompraDetalle />} />
         </Routes>
       </main>
     </div>

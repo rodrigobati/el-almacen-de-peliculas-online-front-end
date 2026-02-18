@@ -7,6 +7,11 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+ARG VITE_API_BASE_URL=http://localhost:9500/api
+ARG VITE_VENTAS_API_BASE_URL=http://localhost:9500
+ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+ENV VITE_VENTAS_API_BASE_URL=${VITE_VENTAS_API_BASE_URL}
+
 # Copiar package files
 COPY package.json package-lock.json ./
 
