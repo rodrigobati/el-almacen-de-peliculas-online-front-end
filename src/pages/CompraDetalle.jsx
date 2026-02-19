@@ -79,8 +79,12 @@ export default function CompraDetalle() {
 
         {isRejected && (
           <div className="error-box">
-            <p>Purchase rejected due to stock unavailability. Amount refunded to your wallet.</p>
-            {compra.detallesRechazo && <p>{compra.detallesRechazo}</p>}
+            <p>La compra fue rechazada por falta de stock. El importe fue reintegrado a tu billetera.</p>
+            {compra.detallesRechazo && (
+              <p style={{ fontSize: "0.9rem", opacity: 0.85 }}>
+                <strong>Detalles técnicos:</strong> {compra.detallesRechazo}
+              </p>
+            )}
           </div>
         )}
         {!isRejected && isPolling && (

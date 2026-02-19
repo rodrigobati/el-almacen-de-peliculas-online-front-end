@@ -7,7 +7,8 @@ const ERROR_MESSAGES_BY_CODE = {
   CARRITO_VACIO: "Your cart is empty.",
   DESCUENTO_INVALIDO: "Invalid discount.",
   COMPRA_NO_ENCONTRADA: "Purchase not found.",
-  CLIENTE_NO_AUTENTICADO: "You must sign in to continue."
+  CLIENTE_NO_AUTENTICADO: "You must sign in to continue.",
+  AUTH_TOKEN_MISSING: "Authentication token is missing. Please sign in again."
 };
 
 function getClienteIdFromStorage() {
@@ -92,6 +93,15 @@ function mapFriendlyMessage(error) {
 
 async function request(path, { method = "GET", token, body } = {}) {
   const url = `${VENTAS_BASE}${path}`;
+
+  if (!token) {
+    throw {
+      status: 401,
+      code: "AUTH_TOKEN_MISSING",
+      message: ERROR_MESSAGES_BY_CODE.AUTH_TOKEN_MISSING,
+      friendlyMessage: ERROR_MESSAGES_BY_CODE.AUTH_TOKEN_MISSING
+    };
+  }
 
   try {
     const response = await fetch(url, {

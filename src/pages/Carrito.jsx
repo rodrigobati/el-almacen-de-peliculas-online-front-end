@@ -8,7 +8,7 @@ import Toast from "../components/Toast";
 import ConfirmModal from "../components/ConfirmModal";
 
 export default function Carrito() {
-  const { keycloak } = useAuth();
+  const { keycloak, token, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [carrito, setCarrito] = useState({ items: [], total: 0 });
   const [loading, setLoading] = useState(true);
@@ -28,7 +28,7 @@ export default function Carrito() {
   const [confirmandoCompra, setConfirmandoCompra] = useState(false);
   const [clienteId, setClienteId] = useState("");
 
-  const accessToken = keycloak?.token;
+  const accessToken = token;
 
   useEffect(() => {
     try {
@@ -189,6 +189,22 @@ export default function Carrito() {
         <div className="container">
           {header}
           <p className="loading-text">Cargando carrito...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isAuthenticated && !accessToken) {
+    return (
+      <div className="carrito-page">
+        <div className="container">
+          {header}
+          <div className="error-box">
+            <p>Your session is authenticated but token is unavailable. Please sign in again.</p>
+            <button onClick={() => keycloak?.login()} className="btn-primary" type="button">
+              Sign in again
+            </button>
+          </div>
         </div>
       </div>
     );
