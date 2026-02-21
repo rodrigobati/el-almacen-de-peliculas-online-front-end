@@ -1,15 +1,9 @@
+import { createApiError, normalizeApiError } from "./errorNormalizer";
+
 const RAW_VENTAS_BASE =
   import.meta.env.VITE_VENTAS_API_BASE_URL || "http://localhost:9500";
 
 const VENTAS_BASE = RAW_VENTAS_BASE.replace(/\/$/, "");
-
-const ERROR_MESSAGES_BY_CODE = {
-  CARRITO_VACIO: "Your cart is empty.",
-  DESCUENTO_INVALIDO: "Invalid discount.",
-  COMPRA_NO_ENCONTRADA: "Purchase not found.",
-  CLIENTE_NO_AUTENTICADO: "You must sign in to continue.",
-  AUTH_TOKEN_MISSING: "Authentication token is missing. Please sign in again."
-};
 
 function getClienteIdFromStorage() {
   try {
@@ -42,7 +36,6 @@ export function buildHeaders({ token, method = "GET" } = {}) {
 export async function handleApiError(res) {
   let payload = null;
   let message = `HTTP ${res.status}`;
-  let code = null;
 
   try {
     const text = await res.text();
@@ -61,46 +54,30 @@ export async function handleApiError(res) {
   }
 
   if (payload) {
-    code = payload.code || payload.errorCode || null;
     message = payload.message || payload.error || message;
   }
 
-  const normalized = {
-    status: res.status,
-    code,
-    message,
-    raw: payload
-  };
-
-  throw normalized;
-}
-
-function mapFriendlyMessage(error) {
-  if (!error) {
-    return "Unexpected error.";
-  }
-
-  if (error.code && ERROR_MESSAGES_BY_CODE[error.code]) {
-    return ERROR_MESSAGES_BY_CODE[error.code];
-  }
-
-  if (error.status === 0) {
-    return "Could not connect to the sales service.";
-  }
-
-  return error.message || "Unexpected error.";
+  throw createApiError({
+    code:
+      payload?.code ||
+      payload?.errorCode ||
+      payload?.motivoRechazo ||
+      `HTTP_${res.status}`,
+    httpStatus: res.status,
+    details: payload,
+    rawMessage: message
+  });
 }
 
 async function request(path, { method = "GET", token, body } = {}) {
   const url = `${VENTAS_BASE}${path}`;
 
   if (!token) {
-    throw {
-      status: 401,
+    throw createApiError({
       code: "AUTH_TOKEN_MISSING",
-      message: ERROR_MESSAGES_BY_CODE.AUTH_TOKEN_MISSING,
-      friendlyMessage: ERROR_MESSAGES_BY_CODE.AUTH_TOKEN_MISSING
-    };
+      httpStatus: 401,
+      details: { reason: "missing_token" }
+    });
   }
 
   try {
@@ -120,23 +97,7 @@ async function request(path, { method = "GET", token, body } = {}) {
 
     return await response.json();
   } catch (error) {
-    if (error && Object.prototype.hasOwnProperty.call(error, "status")) {
-      throw {
-        ...error,
-        friendlyMessage: mapFriendlyMessage(error)
-      };
-    }
-
-    const networkError = {
-      status: 0,
-      code: "NETWORK_ERROR",
-      message: error?.message || "Network error"
-    };
-
-    throw {
-      ...networkError,
-      friendlyMessage: mapFriendlyMessage(networkError)
-    };
+    throw normalizeApiError(error, { fallbackCode: "UNKNOWN_ERROR" });
   }
 }
 
@@ -229,8 +190,4 @@ export function getCompraDetalle(id, token) {
   return request(`/api/compras/${encodeURIComponent(id)}`, { token }).then(
     mapCompraDetalle
   );
-}
-
-export function getVentasFriendlyMessage(error) {
-  return mapFriendlyMessage(error);
 }

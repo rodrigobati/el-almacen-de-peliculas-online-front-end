@@ -5,6 +5,7 @@ import CategoryFilter from "../components/CategoryFilter";
 import { searchMovies, fetchCategories } from "../api/movies";
 import Reviews from "../pages/Reviews";
 import { emitDevEvent } from "../utils/devDiagnostics";
+import { t } from "../i18n/t";
 
 export default function CatalogPage() {
   const BUILD_TAG = "CATALOGO-DBG-2026-02-14T03";
@@ -234,7 +235,7 @@ export default function CatalogPage() {
                     onClick={() => setMostrarReviews(!mostrarReviews)}
                     className="btn-reviews"
                   >
-                    {mostrarReviews ? "Ocultar Reviews" : "Ver Reviews"}
+                    {mostrarReviews ? t("catalog.reviewsToggleHide") : t("catalog.reviewsToggleShow")}
                   </button>
                   <button onClick={() => setSelected(null)} className="btn">
                     Cerrar

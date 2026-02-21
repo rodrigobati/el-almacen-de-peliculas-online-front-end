@@ -1,4 +1,33 @@
 import { API_BASE } from "./config.js";
+import { createApiError } from "./errorNormalizer.js";
+
+const STRICT_API_CONTRACT =
+  import.meta.env?.VITE_STRICT_API_CONTRACT === "true" || Boolean(import.meta.env?.DEV);
+
+const PAGE_RESPONSE_REQUIRED_FIELDS = ["items", "total", "page", "size", "totalPages"];
+
+function isFiniteNumber(value) {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function buildLegacyArrayResponse(payload, status) {
+  return {
+    items: payload,
+    total: payload.length,
+    page: 0,
+    size: payload.length,
+    totalPages: payload.length ? 1 : 0,
+    status,
+  };
+}
+
+function buildContractError(rawMessage, details = {}) {
+  return createApiError({
+    code: "API_CONTRACT_INVALID_PAGE_RESPONSE",
+    details,
+    rawMessage,
+  });
+}
 
 async function parseErrorResponse(res, context = {}) {
   const text = await res.text().catch(() => "");
@@ -12,30 +41,33 @@ async function parseErrorResponse(res, context = {}) {
     }
   }
 
-  const backendMessage = payload?.message || payload?.error || text || "";
-  const excerpt = backendMessage ? String(backendMessage).slice(0, 300) : "";
-  const message = excerpt
-    ? `HTTP ${res.status} - ${excerpt}`
-    : `HTTP ${res.status}`;
-  const error = new Error(message);
-  error.status = res.status;
-  error.details = payload;
-  error.responseText = text;
-  error.context = context;
-  throw error;
+  throw createApiError({
+    code: payload?.code || payload?.errorCode || `HTTP_${res.status}`,
+    httpStatus: res.status,
+    details: payload,
+    rawMessage: payload?.message || payload?.error || text || `HTTP ${res.status}`
+  });
 }
 
 function rewrapNetworkErrorIfNeeded(err, context) {
   if (err?.name === "TypeError" && !Number.isFinite(err?.status)) {
-    const networkError = new Error(`Network/CORS - ${err.message}`);
-    networkError.name = err.name;
-    networkError.cause = err;
-    networkError.context = context;
-    throw networkError;
+    throw createApiError({
+      code: "NETWORK_ERROR",
+      details: context,
+      rawMessage: err?.message,
+      cause: err
+    });
   }
 }
 
-export async function listMovies({ q = "", page = 0, size = 20, sort = "fechaSalida", asc = false } = {}) {
+export async function listMovies(accessToken, { q = "", page = 0, size = 20, sort = "fechaSalida", asc = false } = {}) {
+  if (!accessToken) {
+    throw createApiError({
+      code: "AUTH_TOKEN_MISSING",
+      httpStatus: 401
+    });
+  }
+
   const params = new URLSearchParams({
     q,
     page: String(page),
@@ -44,7 +76,7 @@ export async function listMovies({ q = "", page = 0, size = 20, sort = "fechaSal
     asc: String(asc)
   });
 
-  const url = `${API_BASE}/peliculas?${params.toString()}`;
+  const url = `${API_BASE}/admin/peliculas?${params.toString()}`;
   const isDev = import.meta.env?.DEV;
   const context = { url, method: "GET" };
 
@@ -54,8 +86,13 @@ export async function listMovies({ q = "", page = 0, size = 20, sort = "fechaSal
 
   let res;
   try {
-    res = await fetch(url);
+    res = await fetch(url, {
+      headers: {
+        "Authorization": `Bearer ${accessToken}`
+      }
+    });
   } catch (err) {
+    rewrapNetworkErrorIfNeeded(err, context);
     if (isDev) {
       console.error("LIST_MOVIES_FETCH_ERROR", {
         name: err?.name,
@@ -72,15 +109,89 @@ export async function listMovies({ q = "", page = 0, size = 20, sort = "fechaSal
   }
 
   const payload = await res.json();
+  return validatePageResponse(payload, {
+    status: res.status,
+    strict: STRICT_API_CONTRACT,
+    isDev,
+    context,
+  });
+}
+
+export function validatePageResponse(payload, { status, strict = STRICT_API_CONTRACT, isDev = Boolean(import.meta.env?.DEV), context = {} } = {}) {
+  if (Array.isArray(payload)) {
+    if (strict) {
+      throw createApiError({
+        code: "API_CONTRACT_LEGACY_ARRAY_NOT_ALLOWED",
+        httpStatus: status,
+        details: {
+          receivedType: "array",
+          ...context,
+        },
+        rawMessage: "Legacy array response is not allowed",
+      });
+    }
+
+    if (isDev) {
+      console.warn("LIST_MOVIES_LEGACY_ARRAY_RESPONSE", {
+        status,
+        url: context?.url,
+        method: context?.method,
+        length: payload.length,
+      });
+    }
+
+    return buildLegacyArrayResponse(payload, status);
+  }
+
+  if (!payload || typeof payload !== "object") {
+    throw buildContractError("Invalid page response payload type", {
+      receivedType: typeof payload,
+      ...context,
+    });
+  }
+
+  const missingFields = PAGE_RESPONSE_REQUIRED_FIELDS.filter((field) => !(field in payload));
+  if (missingFields.length > 0) {
+    throw buildContractError("Invalid page response: missing required fields", {
+      missingFields,
+      ...context,
+    });
+  }
+
+  if (!Array.isArray(payload.items)) {
+    throw buildContractError("Invalid page response: items must be an array", context);
+  }
+
+  const numericFields = ["total", "page", "size", "totalPages"];
+  const invalidNumericFields = numericFields.filter((field) => !isFiniteNumber(payload[field]));
+  if (invalidNumericFields.length > 0) {
+    throw buildContractError("Invalid page response: numeric fields are required", {
+      invalidNumericFields,
+      ...context,
+    });
+  }
+
   return {
     ...payload,
-    status: res.status,
+    status,
   };
+}
+
+// Backward-compatible helper used by existing tests/imports.
+export function normalizeListPayload(payload, status) {
+  return validatePageResponse(payload, {
+    status,
+    strict: false,
+    isDev: false,
+  });
 }
 
 export async function getMovieDetail(id) {
   if (!id) {
-    throw new Error("id es requerido");
+    throw createApiError({
+      code: "VALIDATION_ID_REQUIRED",
+      details: { field: "id" }
+    });
   }
 
   const url = `${API_BASE}/peliculas/${encodeURIComponent(id)}`;
@@ -111,7 +222,10 @@ export async function getMovieDetail(id) {
 
 export async function createMovie(accessToken, payload) {
   if (!accessToken) {
-    throw new Error("Usuario no autenticado");
+    throw createApiError({
+      code: "AUTH_TOKEN_MISSING",
+      httpStatus: 401
+    });
   }
 
   const url = `${API_BASE}/admin/peliculas`;
@@ -168,10 +282,16 @@ export async function createMovie(accessToken, payload) {
 
 export async function updateMovie(accessToken, id, payload) {
   if (!accessToken) {
-    throw new Error("Usuario no autenticado");
+    throw createApiError({
+      code: "AUTH_TOKEN_MISSING",
+      httpStatus: 401
+    });
   }
   if (!id) {
-    throw new Error("id es requerido");
+    throw createApiError({
+      code: "VALIDATION_ID_REQUIRED",
+      details: { field: "id" }
+    });
   }
 
   const url = `${API_BASE}/admin/peliculas/${encodeURIComponent(id)}`;
@@ -230,10 +350,16 @@ export async function updateMovie(accessToken, id, payload) {
 
 export async function retireMovie(accessToken, id) {
   if (!accessToken) {
-    throw new Error("Usuario no autenticado");
+    throw createApiError({
+      code: "AUTH_TOKEN_MISSING",
+      httpStatus: 401
+    });
   }
   if (!id) {
-    throw new Error("id es requerido");
+    throw createApiError({
+      code: "VALIDATION_ID_REQUIRED",
+      details: { field: "id" }
+    });
   }
 
   const url = `${API_BASE}/admin/peliculas/${encodeURIComponent(id)}`;
@@ -290,7 +416,10 @@ export async function retireMovie(accessToken, id) {
 
 export async function fetchDirectores(accessToken, { q = "", page, size } = {}) {
   if (!accessToken) {
-    throw new Error("Usuario no autenticado");
+    throw createApiError({
+      code: "AUTH_TOKEN_MISSING",
+      httpStatus: 401
+    });
   }
 
   const params = new URLSearchParams();
@@ -326,7 +455,10 @@ export async function fetchDirectores(accessToken, { q = "", page, size } = {}) 
 
 export async function createDirector(accessToken, payload) {
   if (!accessToken) {
-    throw new Error("Usuario no autenticado");
+    throw createApiError({
+      code: "AUTH_TOKEN_MISSING",
+      httpStatus: 401
+    });
   }
 
   const url = `${API_BASE}/admin/directores`;
@@ -357,7 +489,10 @@ export async function createDirector(accessToken, payload) {
 
 export async function fetchActores(accessToken, { q = "", page, size } = {}) {
   if (!accessToken) {
-    throw new Error("Usuario no autenticado");
+    throw createApiError({
+      code: "AUTH_TOKEN_MISSING",
+      httpStatus: 401
+    });
   }
 
   const params = new URLSearchParams();
@@ -393,7 +528,10 @@ export async function fetchActores(accessToken, { q = "", page, size } = {}) {
 
 export async function createActor(accessToken, payload) {
   if (!accessToken) {
-    throw new Error("Usuario no autenticado");
+    throw createApiError({
+      code: "AUTH_TOKEN_MISSING",
+      httpStatus: 401
+    });
   }
 
   const url = `${API_BASE}/admin/actores`;

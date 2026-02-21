@@ -1,10 +1,13 @@
 import Keycloak from 'keycloak-js';
+import { APP_CONFIG } from '../config/env.js';
 
 const keycloakConfig = {
-  url: 'http://localhost:9090',
-  realm: 'videoclub', 
-  clientId: 'web', 
+  url: APP_CONFIG.keycloak.url,
+  realm: APP_CONFIG.keycloak.realm,
+  clientId: APP_CONFIG.keycloak.clientId,
 };
+
+const keycloakRedirectUri = APP_CONFIG.keycloak.redirectUri;
 
 // Crear instancia de Keycloak
 const keycloak = new Keycloak(keycloakConfig);
@@ -46,8 +49,8 @@ const initKeycloak = () => {
 };
 
 // Funciones de autenticación
-const login = () => keycloak.login();
-const logout = () => keycloak.logout();
+const login = () => keycloak.login({ redirectUri: keycloakRedirectUri });
+const logout = () => keycloak.logout({ redirectUri: keycloakRedirectUri });
 const getToken = () => keycloak.token;
 const isLoggedIn = () => !!keycloak.token;
 const updateToken = (successCallback) => keycloak.updateToken(5).then(successCallback).catch(login);
@@ -62,17 +65,16 @@ const openAccountManagement = () => {
   }
 
   try {
-    // Account Console moderno
-    const baseUrl = `${keycloakConfig.url}/realms/${keycloakConfig.realm}/account`;
-    const redirectUri = encodeURIComponent('http://localhost:5173/');
-    const accountUrl = `${baseUrl}?referrer=${keycloakConfig.clientId}&referrer_uri=${redirectUri}`;
-    
+    const accountUrl = typeof keycloak.createAccountUrl === 'function'
+      ? keycloak.createAccountUrl({ redirectUri: keycloakRedirectUri })
+      : `${keycloakConfig.url}/realms/${keycloakConfig.realm}/account?referrer=${keycloakConfig.clientId}&referrer_uri=${encodeURIComponent(keycloakRedirectUri)}`;
+
     window.open(accountUrl, '_blank');
   } catch (error) {
     console.error('Error abriendo Account Console:', error);
-    
+
     // Fallback - página de cambio de contraseña
-    const fallbackUrl = `${keycloakConfig.url}/realms/${keycloakConfig.realm}/protocol/openid-connect/auth?response_type=code&client_id=${keycloakConfig.clientId}&redirect_uri=${encodeURIComponent('http://localhost:5173/')}&kc_action=UPDATE_PASSWORD`;
+    const fallbackUrl = `${keycloakConfig.url}/realms/${keycloakConfig.realm}/protocol/openid-connect/auth?response_type=code&client_id=${keycloakConfig.clientId}&redirect_uri=${encodeURIComponent(keycloakRedirectUri)}&kc_action=UPDATE_PASSWORD`;
     window.open(fallbackUrl, '_blank');
   }
 };

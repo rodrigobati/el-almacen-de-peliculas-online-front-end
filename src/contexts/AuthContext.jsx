@@ -23,6 +23,9 @@ function extractRoles(userInfo) {
   return [...new Set([...realmRoles, ...resourceRoles])];
 }
 
+const ADMIN_ROLE = "ROLE_ADMIN";
+
+
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
@@ -106,6 +109,9 @@ export const AuthProvider = ({ children }) => {
 
   const roles = extractRoles(user);
 
+  const hasRole = (roleName) => Array.isArray(roles) && roles.includes(roleName);
+  const isAdmin = hasRole(ADMIN_ROLE);
+
   // Contract: cualquier consumidor de useAuth() recibe siempre token/roles/user sincronizados.
   const value = {
     isAuthenticated,
@@ -114,6 +120,8 @@ export const AuthProvider = ({ children }) => {
     roles,
     loading,
     keycloak,
+    hasRole,
+    isAdmin,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

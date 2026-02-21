@@ -1,5 +1,6 @@
 // src/api/carrito.js
 import { API_BASE } from './config.js';
+import { createApiError, normalizeApiError } from './errorNormalizer.js';
 
 function readClienteId() {
   try {
@@ -68,11 +69,12 @@ async function parseErrorResponse(res) {
     }
   }
 
-  const message = payload?.message || payload?.error || text || `HTTP ${res.status}`;
-  const error = new Error(message);
-  error.status = res.status;
-  error.details = payload;
-  throw error;
+  throw createApiError({
+    code: payload?.code || payload?.errorCode || `HTTP_${res.status}`,
+    httpStatus: res.status,
+    details: payload,
+    rawMessage: payload?.message || payload?.error || text || `HTTP ${res.status}`
+  });
 }
 
 /**
@@ -81,17 +83,21 @@ async function parseErrorResponse(res) {
  */
 export async function fetchCarrito(accessToken) {
   const url = `${API_BASE}/carrito`;
-  
-  const res = await fetch(url, {
-    headers: buildAuthHeaders(accessToken)
-  });
-  
-  if (!res.ok) {
-    await parseErrorResponse(res);
+
+  try {
+    const res = await fetch(url, {
+      headers: buildAuthHeaders(accessToken)
+    });
+
+    if (!res.ok) {
+      await parseErrorResponse(res);
+    }
+
+    const json = await res.json();
+    return mapCarritoDTOtoUI(json);
+  } catch (error) {
+    throw normalizeApiError(error, { fallbackCode: "UNKNOWN_ERROR" });
   }
-  
-  const json = await res.json();
-  return mapCarritoDTOtoUI(json);
 }
 
 /**
@@ -101,11 +107,14 @@ export async function fetchCarrito(accessToken) {
  */
 export async function agregarAlCarrito(accessToken, pelicula) {
   if (!pelicula || !pelicula.peliculaId) {
-    throw new Error("peliculaId es requerido");
+    throw createApiError({
+      code: "VALIDATION_PELICULA_ID_REQUIRED",
+      details: { field: "peliculaId" }
+    });
   }
 
   const url = `${API_BASE}/carrito/items`;
-  
+
   const body = {
     peliculaId: pelicula.peliculaId,
     titulo: pelicula.titulo ?? "",
@@ -113,18 +122,22 @@ export async function agregarAlCarrito(accessToken, pelicula) {
     cantidad: pelicula.cantidad ?? 1
   };
 
-  const res = await fetch(url, {
-    method: "POST",
-    headers: buildAuthHeaders(accessToken, "POST"),
-    body: JSON.stringify(body)
-  });
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: buildAuthHeaders(accessToken, "POST"),
+      body: JSON.stringify(body)
+    });
 
-  if (!res.ok) {
-    await parseErrorResponse(res);
+    if (!res.ok) {
+      await parseErrorResponse(res);
+    }
+
+    const json = await res.json();
+    return mapCarritoDTOtoUI(json);
+  } catch (error) {
+    throw normalizeApiError(error, { fallbackCode: "UNKNOWN_ERROR" });
   }
-
-  const json = await res.json();
-  return mapCarritoDTOtoUI(json);
 }
 
 /**
@@ -134,22 +147,29 @@ export async function agregarAlCarrito(accessToken, pelicula) {
  */
 export async function eliminarDelCarrito(accessToken, peliculaId) {
   if (!peliculaId) {
-    throw new Error("peliculaId es requerido");
+    throw createApiError({
+      code: "VALIDATION_PELICULA_ID_REQUIRED",
+      details: { field: "peliculaId" }
+    });
   }
 
   const url = `${API_BASE}/carrito/items/${encodeURIComponent(peliculaId)}`;
-  
-  const res = await fetch(url, {
-    method: "DELETE",
-    headers: buildAuthHeaders(accessToken)
-  });
 
-  if (!res.ok) {
-    await parseErrorResponse(res);
+  try {
+    const res = await fetch(url, {
+      method: "DELETE",
+      headers: buildAuthHeaders(accessToken)
+    });
+
+    if (!res.ok) {
+      await parseErrorResponse(res);
+    }
+
+    const json = await res.json();
+    return mapCarritoDTOtoUI(json);
+  } catch (error) {
+    throw normalizeApiError(error, { fallbackCode: "UNKNOWN_ERROR" });
   }
-
-  const json = await res.json();
-  return mapCarritoDTOtoUI(json);
 }
 
 /**
@@ -159,20 +179,27 @@ export async function eliminarDelCarrito(accessToken, peliculaId) {
  */
 export async function decrementarDelCarrito(accessToken, peliculaId) {
   if (!peliculaId) {
-    throw new Error("peliculaId es requerido");
+    throw createApiError({
+      code: "VALIDATION_PELICULA_ID_REQUIRED",
+      details: { field: "peliculaId" }
+    });
   }
 
   const url = `${API_BASE}/carrito/items/${encodeURIComponent(peliculaId)}/decrement`;
 
-  const res = await fetch(url, {
-    method: "PATCH",
-    headers: buildAuthHeaders(accessToken)
-  });
+  try {
+    const res = await fetch(url, {
+      method: "PATCH",
+      headers: buildAuthHeaders(accessToken)
+    });
 
-  if (!res.ok) {
-    await parseErrorResponse(res);
+    if (!res.ok) {
+      await parseErrorResponse(res);
+    }
+
+    const json = await res.json();
+    return mapCarritoDTOtoUI(json);
+  } catch (error) {
+    throw normalizeApiError(error, { fallbackCode: "UNKNOWN_ERROR" });
   }
-
-  const json = await res.json();
-  return mapCarritoDTOtoUI(json);
 }

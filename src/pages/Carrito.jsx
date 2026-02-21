@@ -3,9 +3,15 @@ import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { eliminarDelCarrito, decrementarDelCarrito } from "../api/carrito";
-import { confirmarCompra, getCarrito, getVentasFriendlyMessage } from "../api/ventas";
+import { confirmarCompra, getCarrito } from "../api/ventas";
 import Toast from "../components/Toast";
 import ConfirmModal from "../components/ConfirmModal";
+import { apiErrorMessageKey, t } from "../i18n/t";
+
+function resolveErrorMessage(error) {
+  const key = apiErrorMessageKey(error?.code, error?.httpStatus);
+  return t(key, error?.details ?? {});
+}
 
 export default function Carrito() {
   const { keycloak, token, isAuthenticated } = useAuth();
@@ -50,7 +56,7 @@ export default function Carrito() {
       setCarrito(data);
     } catch (err) {
       console.error("Error al cargar carrito:", err);
-      setError(err?.friendlyMessage || err.message || "Error al cargar el carrito");
+      setError(resolveErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -68,11 +74,10 @@ export default function Carrito() {
       });
     } catch (err) {
       console.error("Error al eliminar:", err);
-      const detailsMessage = err?.friendlyMessage || err?.details?.message || err?.message;
       setToast({
         open: true,
         title: "No se pudo eliminar",
-        description: detailsMessage || "Error al eliminar la película",
+        description: resolveErrorMessage(err),
         variant: "error"
       });
     }
@@ -107,11 +112,10 @@ export default function Carrito() {
       setCarrito(data);
     } catch (err) {
       console.error("Error al decrementar:", err);
-      const detailsMessage = err?.friendlyMessage || err?.details?.message || err?.message;
       setToast({
         open: true,
         title: "No se pudo decrementar",
-        description: detailsMessage || "Error al decrementar la película",
+        description: resolveErrorMessage(err),
         variant: "error"
       });
     }
@@ -154,11 +158,10 @@ export default function Carrito() {
       setConfirmCompraOpen(false);
       navigate(`/compras/${response.compraId}`);
     } catch (err) {
-      const humanMessage = err?.friendlyMessage || getVentasFriendlyMessage(err);
       setToast({
         open: true,
         title: "No se pudo confirmar la compra",
-        description: humanMessage,
+        description: resolveErrorMessage(err),
         variant: "error"
       });
       setConfirmCompraOpen(false);
@@ -169,16 +172,16 @@ export default function Carrito() {
 
   const header = (
     <div className="carrito-header">
-      <h2>Mi Carrito</h2>
+      <h2>{t("cart.title")}</h2>
       <button
         type="button"
         onClick={() => navigate("/")}
         className="btn-secondary"
       >
-        Volver al catálogo
+        {t("cart.backToCatalog")}
       </button>
       <Link to="/compras" className="btn-secondary">
-        Ver compras
+        {t("cart.viewPurchases")}
       </Link>
     </div>
   );
@@ -188,7 +191,7 @@ export default function Carrito() {
       <div className="carrito-page">
         <div className="container">
           {header}
-          <p className="loading-text">Cargando carrito...</p>
+          <p className="loading-text">{t("cart.loading")}</p>
         </div>
       </div>
     );
@@ -200,9 +203,9 @@ export default function Carrito() {
         <div className="container">
           {header}
           <div className="error-box">
-            <p>Your session is authenticated but token is unavailable. Please sign in again.</p>
+            <p>{t("cart.authNoToken")}</p>
             <button onClick={() => keycloak?.login()} className="btn-primary" type="button">
-              Sign in again
+              {t("cart.authSignInAgain")}
             </button>
           </div>
         </div>
@@ -216,7 +219,7 @@ export default function Carrito() {
         <div className="container">
           {header}
           <div className="error-box">
-            <p>Iniciá sesión o cargá un cliente de desarrollo para usar el carrito.</p>
+            <p>{t("cart.authWithDevClient")}</p>
             <input
               type="text"
               value={clienteId}
@@ -228,7 +231,7 @@ export default function Carrito() {
               Iniciar sesión
             </button>
             <button onClick={loadCarrito} className="btn-secondary" type="button">
-              Reintentar con clienteId
+              {t("cart.retryWithClientId")}
             </button>
           </div>
         </div>
@@ -255,13 +258,13 @@ export default function Carrito() {
         <div className="container">
           {header}
           <div className="empty-cart">
-            <p>Tu carrito está vacío</p>
+            <p>{t("cart.empty")}</p>
             <button
               type="button"
               onClick={() => navigate("/")}
               className="btn-primary"
             >
-              Ir al catálogo
+              {t("cart.goToCatalog")}
             </button>
           </div>
         </div>
@@ -294,16 +297,16 @@ export default function Carrito() {
                     <button
                       onClick={() => handleDecrementar(item.peliculaId)}
                       className="btn-decrement"
-                      title="Quitar una unidad"
+                      title={t("cart.removeOneUnit")}
                     >
                       -
                     </button>
                     <button
                       onClick={() => openConfirm(item)}
                       className="btn-delete"
-                      title="Eliminar"
+                      title={t("cart.remove")}
                     >
-                      🗑️ Eliminar
+                      🗑️ {t("cart.remove")}
                     </button>
                   </div>
                 </div>
@@ -313,15 +316,15 @@ export default function Carrito() {
 
           <div className="carrito-summary">
             <div className="summary-row">
-              <span className="summary-label">Subtotal:</span>
+              <span className="summary-label">{t("cart.summarySubtotal")}</span>
               <span>${(carrito.subtotal ?? carrito.total).toLocaleString()}</span>
             </div>
             <div className="summary-row">
-              <span className="summary-label">Descuento:</span>
+              <span className="summary-label">{t("cart.summaryDiscount")}</span>
               <span>${(carrito.descuentoAplicado ?? 0).toLocaleString()}</span>
             </div>
             <div className="summary-row">
-              <span className="summary-label">Total:</span>
+              <span className="summary-label">{t("cart.summaryTotal")}</span>
               <span className="summary-total">${carrito.total.toLocaleString()}</span>
             </div>
             <button
@@ -330,7 +333,7 @@ export default function Carrito() {
               className="btn-primary"
               style={{ width: "100%", marginTop: "0.75rem" }}
             >
-              Confirmar compra
+              {t("cart.confirmPurchase")}
             </button>
           </div>
         </div>
@@ -357,9 +360,9 @@ export default function Carrito() {
       />
       <ConfirmModal
         open={confirmCompraOpen}
-        title="Confirmar compra"
+        title={t("cart.confirmPurchase")}
         message="¿Querés confirmar esta compra?"
-        confirmLabel={confirmandoCompra ? "Confirmando..." : "Confirmar"}
+        confirmLabel={confirmandoCompra ? t("cart.confirmingPurchase") : t("cart.confirmPurchase")}
         cancelLabel="Cancelar"
         onConfirm={handleConfirmCompra}
         onCancel={closeConfirmCompra}

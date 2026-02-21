@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { getCompras } from "../api/ventas";
 import { useAuth } from "../contexts/AuthContext";
+import { apiErrorMessageKey, purchaseStatusLabel, t } from "../i18n/t";
 
 function formatDate(dateValue) {
   if (!dateValue) return "-";
@@ -35,7 +36,7 @@ export default function Compras() {
         setCompras(Array.isArray(data) ? data : []);
       } catch (err) {
         if (!mounted) return;
-        setError(err.message || "Could not load purchases.");
+        setError(t(apiErrorMessageKey(err?.code, err?.httpStatus), err?.details ?? {}));
       } finally {
         if (mounted) {
           setLoading(false);
@@ -51,7 +52,7 @@ export default function Compras() {
 
   const content = useMemo(() => {
     if (loading) {
-      return <p className="loading-text">Loading purchases...</p>;
+      return <p className="loading-text">{t("purchases.loading")}</p>;
     }
 
     if (error) {
@@ -59,7 +60,7 @@ export default function Compras() {
     }
 
     if (!compras.length) {
-      return <p className="empty-cart">No purchases yet.</p>;
+      return <p className="empty-cart">{t("purchases.empty")}</p>;
     }
 
     return (
@@ -67,13 +68,13 @@ export default function Compras() {
         {compras.map((compra) => (
           <article key={compra.id} className="carrito-item">
             <div>
-              <h3>Purchase #{compra.id}</h3>
-              <p>Status: {compra.estado}</p>
-              <p>Date: {formatDate(compra.fecha)}</p>
-              <p>Total: {formatMoney(compra.total)}</p>
+              <h3>{t("purchases.purchaseTitle", { id: compra.id })}</h3>
+              <p>{t("purchases.statusLabel")}: {purchaseStatusLabel(compra.estado)}</p>
+              <p>{t("purchases.dateLabel")}: {formatDate(compra.fecha)}</p>
+              <p>{t("purchases.totalLabel")}: {formatMoney(compra.total)}</p>
             </div>
             <Link className="btn-secondary" to={`/compras/${compra.id}`}>
-              View detail
+              {t("purchases.viewDetail")}
             </Link>
           </article>
         ))}
@@ -85,9 +86,9 @@ export default function Compras() {
     <div className="carrito-page">
       <div className="container">
         <div className="carrito-header">
-          <h2>My purchases</h2>
+          <h2>{t("purchases.title")}</h2>
           <Link className="btn-secondary" to="/carrito">
-            Go to cart
+            {t("purchases.goToCart")}
           </Link>
         </div>
         {content}

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
+import { t } from "../i18n/t";
 
 function ReviewStar({
   filled = false,
@@ -119,11 +120,11 @@ export default function Reviews({ peliculaId, peliculaTitulo }) {
       } else {
         const errorData = await response.text();
         console.error("❌ Error del servidor:", errorData);
-        alert("Error al enviar la review");
+        alert(t("reviews.sendError"));
       }
     } catch (error) {
       console.error("❌ Error enviando review:", error);
-      alert("Error al enviar la review");
+      alert(t("reviews.sendError"));
     } finally {
       setEnviando(false);
     }
@@ -154,12 +155,12 @@ export default function Reviews({ peliculaId, peliculaTitulo }) {
   return (
     <div className="reviews-container">
       <div className="reviews-header">
-        <h3>⭐ Reviews</h3>
+        <h3>{t("reviews.title")}</h3>
         {reviews.length > 0 && (
           <div className="reviews-stats">
             <span className="promedio">{promedio.toFixed(1)}</span>
             <ReviewStars value={Math.round(promedio)} size="small" />
-            <span className="total-reviews">({reviews.length} reviews)</span>
+            <span className="total-reviews">{t("reviews.totalCount", { count: reviews.length })}</span>
           </div>
         )}
       </div>
@@ -169,19 +170,19 @@ export default function Reviews({ peliculaId, peliculaTitulo }) {
           onClick={() => setMostrarForm(true)}
           className="btn-agregar-review"
         >
-          ✍️ Escribir una review
+          {t("reviews.write")}
         </button>
       )}
 
       {isAuthenticated && usuarioYaReseño && (
         <div className="ya-reseno-mensaje">
-          <p>✓ Ya dejaste tu review para esta película</p>
+          <p>{t("reviews.alreadyReviewed")}</p>
         </div>
       )}
 
       {mostrarForm && isAuthenticated && (
         <div className="review-form">
-          <h4>Tu review</h4>
+          <h4>{t("reviews.yourReview")}</h4>
 
           <div className="form-field">
             <label>Puntuación:</label>
@@ -218,7 +219,7 @@ export default function Reviews({ peliculaId, peliculaTitulo }) {
               disabled={!nuevaReview.comentario.trim() || enviando}
               className="btn-enviar-review"
             >
-              {enviando ? "Enviando..." : "Publicar Review"}
+              {enviando ? t("reviews.submitting") : t("reviews.submit")}
             </button>
             <button
               onClick={() => setMostrarForm(false)}
@@ -232,17 +233,17 @@ export default function Reviews({ peliculaId, peliculaTitulo }) {
 
       {!isAuthenticated && (
         <div className="login-prompt-small">
-          <p>Inicia sesión para escribir una review</p>
+          <p>{t("reviews.loginToWrite")}</p>
         </div>
       )}
 
       <div className="reviews-lista">
-        {loading && <p className="loading-text">Cargando reviews...</p>}
+        {loading && <p className="loading-text">{t("reviews.loading")}</p>}
 
         {!loading && reviews.length === 0 && (
           <div className="no-reviews">
-            <p>Aún no hay reviews para esta película.</p>
-            <p>¡Sé el primero en escribir una!</p>
+            <p>{t("reviews.empty")}</p>
+            <p>{t("reviews.beFirst")}</p>
           </div>
         )}
 
@@ -251,7 +252,7 @@ export default function Reviews({ peliculaId, peliculaTitulo }) {
             <div className="review-header-item">
               <div className="review-usuario-info">
                 <span className="review-usuario">
-                  👤 {review.usuarioId || "Usuario anónimo"}
+                  👤 {review.usuarioId || t("reviews.anonymousUser")}
                 </span>
                 <span className="review-fecha">
                   {formatearFecha(review.fechaCreacion)}

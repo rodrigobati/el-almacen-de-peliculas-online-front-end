@@ -8,25 +8,27 @@ import CompraDetalle from "./pages/CompraDetalle";
 import AdminCatalogo from "./pages/AdminCatalogo";
 import LoginButton from "./components/LoginButton";
 import ProtectedRoute from "./components/ProtectedRoute";
+import AdminRoute from "./components/AdminRoute";
+import { t } from "./i18n/t";
 
 function AppLayout() {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, isAdmin } = useAuth();
 
   return (
     <div className="app">
       <header className="app-header">
         <h1>El Almacén de Películas</h1>
         <div className="app-actions">
-          {!loading && isAuthenticated && (
+          {!loading && isAuthenticated && isAdmin && (
             <Link to="/admin/catalogo" className="nav-admin-btn">
-              🛠 Admin
+              🛠 {t("navigation.admin")}
             </Link>
           )}
           <Link to="/carrito" className="nav-cart-btn">
-            🛒 Carrito
+            🛒 {t("navigation.cart")}
           </Link>
           <Link to="/compras" className="nav-cart-btn">
-            📦 Compras
+            📦 {t("navigation.purchases")}
           </Link>
           <LoginButton />
         </div>
@@ -38,9 +40,9 @@ function AppLayout() {
           <Route
             path="/admin/catalogo"
             element={
-              <ProtectedRoute>
+              <AdminRoute>
                 <AdminCatalogo />
-              </ProtectedRoute>
+              </AdminRoute>
             }
           />
           <Route path="/carrito" element={<Carrito />} />
