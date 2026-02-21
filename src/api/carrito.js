@@ -1,5 +1,34 @@
 // src/api/carrito.js
 import { API_BASE } from './config.js';
+import { createApiError, normalizeApiError } from './errorNormalizer.js';
+
+function readClienteId() {
+  try {
+    return localStorage.getItem("clienteId") || "";
+  } catch {
+    return "";
+  }
+}
+
+function buildAuthHeaders(accessToken, method = "GET") {
+  const headers = {};
+  const hasToken = Boolean(accessToken);
+  const clienteId = readClienteId();
+
+  if (method.toUpperCase() === "POST") {
+    headers["Content-Type"] = "application/json";
+  }
+
+  if (hasToken) {
+    headers.Authorization = `Bearer ${accessToken}`;
+  }
+
+  if ((import.meta.env.DEV || !hasToken) && clienteId) {
+    headers["X-Cliente-Id"] = clienteId;
+  }
+
+  return headers;
+}
 
 /**
  * Mapea un item del carrito DTO a la forma esperada por la UI.
@@ -40,11 +69,12 @@ async function parseErrorResponse(res) {
     }
   }
 
-  const message = payload?.message || payload?.error || text || `HTTP ${res.status}`;
-  const error = new Error(message);
-  error.status = res.status;
-  error.details = payload;
-  throw error;
+  throw createApiError({
+    code: payload?.code || payload?.errorCode || `HTTP_${res.status}`,
+    httpStatus: res.status,
+    details: payload,
+    rawMessage: payload?.message || payload?.error || text || `HTTP ${res.status}`
+  });
 }
 
 /**
@@ -52,24 +82,22 @@ async function parseErrorResponse(res) {
  * @param {string} accessToken - Token JWT de Keycloak
  */
 export async function fetchCarrito(accessToken) {
-  if (!accessToken) {
-    throw new Error("Usuario no autenticado");
-  }
-
   const url = `${API_BASE}/carrito`;
-  
-  const res = await fetch(url, {
-    headers: {
-      "Authorization": `Bearer ${accessToken}`
+
+  try {
+    const res = await fetch(url, {
+      headers: buildAuthHeaders(accessToken)
+    });
+
+    if (!res.ok) {
+      await parseErrorResponse(res);
     }
-  });
-  
-  if (!res.ok) {
-    await parseErrorResponse(res);
+
+    const json = await res.json();
+    return mapCarritoDTOtoUI(json);
+  } catch (error) {
+    throw normalizeApiError(error, { fallbackCode: "UNKNOWN_ERROR" });
   }
-  
-  const json = await res.json();
-  return mapCarritoDTOtoUI(json);
 }
 
 /**
@@ -78,15 +106,15 @@ export async function fetchCarrito(accessToken) {
  * @param {object} pelicula - Objeto con { peliculaId, titulo, precio, cantidad }
  */
 export async function agregarAlCarrito(accessToken, pelicula) {
-  if (!accessToken) {
-    throw new Error("Usuario no autenticado");
-  }
   if (!pelicula || !pelicula.peliculaId) {
-    throw new Error("peliculaId es requerido");
+    throw createApiError({
+      code: "VALIDATION_PELICULA_ID_REQUIRED",
+      details: { field: "peliculaId" }
+    });
   }
 
   const url = `${API_BASE}/carrito/items`;
-  
+
   const body = {
     peliculaId: pelicula.peliculaId,
     titulo: pelicula.titulo ?? "",
@@ -94,21 +122,22 @@ export async function agregarAlCarrito(accessToken, pelicula) {
     cantidad: pelicula.cantidad ?? 1
   };
 
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${accessToken}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(body)
-  });
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: buildAuthHeaders(accessToken, "POST"),
+      body: JSON.stringify(body)
+    });
 
-  if (!res.ok) {
-    await parseErrorResponse(res);
+    if (!res.ok) {
+      await parseErrorResponse(res);
+    }
+
+    const json = await res.json();
+    return mapCarritoDTOtoUI(json);
+  } catch (error) {
+    throw normalizeApiError(error, { fallbackCode: "UNKNOWN_ERROR" });
   }
-
-  const json = await res.json();
-  return mapCarritoDTOtoUI(json);
 }
 
 /**
@@ -117,28 +146,30 @@ export async function agregarAlCarrito(accessToken, pelicula) {
  * @param {string} peliculaId - ID de la película a eliminar
  */
 export async function eliminarDelCarrito(accessToken, peliculaId) {
-  if (!accessToken) {
-    throw new Error("Usuario no autenticado");
-  }
   if (!peliculaId) {
-    throw new Error("peliculaId es requerido");
+    throw createApiError({
+      code: "VALIDATION_PELICULA_ID_REQUIRED",
+      details: { field: "peliculaId" }
+    });
   }
 
   const url = `${API_BASE}/carrito/items/${encodeURIComponent(peliculaId)}`;
-  
-  const res = await fetch(url, {
-    method: "DELETE",
-    headers: {
-      "Authorization": `Bearer ${accessToken}`
+
+  try {
+    const res = await fetch(url, {
+      method: "DELETE",
+      headers: buildAuthHeaders(accessToken)
+    });
+
+    if (!res.ok) {
+      await parseErrorResponse(res);
     }
-  });
 
-  if (!res.ok) {
-    await parseErrorResponse(res);
+    const json = await res.json();
+    return mapCarritoDTOtoUI(json);
+  } catch (error) {
+    throw normalizeApiError(error, { fallbackCode: "UNKNOWN_ERROR" });
   }
-
-  const json = await res.json();
-  return mapCarritoDTOtoUI(json);
 }
 
 /**
@@ -147,26 +178,28 @@ export async function eliminarDelCarrito(accessToken, peliculaId) {
  * @param {string} peliculaId - ID de la película a decrementar
  */
 export async function decrementarDelCarrito(accessToken, peliculaId) {
-  if (!accessToken) {
-    throw new Error("Usuario no autenticado");
-  }
   if (!peliculaId) {
-    throw new Error("peliculaId es requerido");
+    throw createApiError({
+      code: "VALIDATION_PELICULA_ID_REQUIRED",
+      details: { field: "peliculaId" }
+    });
   }
 
   const url = `${API_BASE}/carrito/items/${encodeURIComponent(peliculaId)}/decrement`;
 
-  const res = await fetch(url, {
-    method: "PATCH",
-    headers: {
-      "Authorization": `Bearer ${accessToken}`
+  try {
+    const res = await fetch(url, {
+      method: "PATCH",
+      headers: buildAuthHeaders(accessToken)
+    });
+
+    if (!res.ok) {
+      await parseErrorResponse(res);
     }
-  });
 
-  if (!res.ok) {
-    await parseErrorResponse(res);
+    const json = await res.json();
+    return mapCarritoDTOtoUI(json);
+  } catch (error) {
+    throw normalizeApiError(error, { fallbackCode: "UNKNOWN_ERROR" });
   }
-
-  const json = await res.json();
-  return mapCarritoDTOtoUI(json);
 }

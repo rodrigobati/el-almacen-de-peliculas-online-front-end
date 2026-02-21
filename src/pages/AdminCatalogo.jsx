@@ -17,8 +17,11 @@ export default function AdminCatalogo() {
   const { keycloak } = useAuth();
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
   const [page, setPage] = useState(0);
-  const [size] = useState(12);
+  const [size, setSize] = useState(12);
+  const [status, setStatus] = useState(null);
+  const [error, setError] = useState("");
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [pending, setPending] = useState(false);
@@ -39,7 +42,19 @@ export default function AdminCatalogo() {
 
   const accessToken = keycloak?.token;
 
-  const pages = Math.max(1, Math.ceil(total / size));
+  const isUnauthorized = status === 401;
+  const isForbidden = status === 403;
+  const isValidationError = status === 400;
+  const hasGenericError = Boolean(error) && !isUnauthorized && !isForbidden && !isValidationError;
+  const showEmptyState =
+    !loading &&
+    !isUnauthorized &&
+    !isForbidden &&
+    !isValidationError &&
+    !hasGenericError &&
+    items.length === 0 &&
+    totalPages === 0;
+  const shouldShowPager = totalPages > 0;
 
   const statusFor = (id) => (retiredIds.has(id) ? "Retirada" : "Activa");
 
@@ -74,24 +89,58 @@ export default function AdminCatalogo() {
     };
   };
 
+  const getHttpStatusFromError = (err) => {
+    if (Number.isFinite(err?.httpStatus)) {
+      return err.httpStatus;
+    }
+    if (Number.isFinite(err?.status)) {
+      return err.status;
+    }
+    return null;
+  };
+
+  const getUiErrorMessage = (err, httpStatus) => {
+    if (httpStatus === 401) {
+      return "No autenticado. Inicia sesión para continuar.";
+    }
+    if (httpStatus === 403) {
+      return "No autorizado.";
+    }
+    if (httpStatus === 400) {
+      return String(err?.rawMessage || err?.message || "Solicitud inválida.");
+    }
+    return "No se pudo cargar el catálogo. Intenta nuevamente.";
+  };
+
   const loadMovies = async () => {
     setLoading(true);
     try {
       if (isDev) {
         console.log("LOAD_MOVIES_START", { query, page, size });
       }
-      const data = await listMovies({ q: query, page, size, sort: "fechaSalida", asc: false });
+      const data = await listMovies(accessToken, { q: query, page, size, sort: "fechaSalida", asc: false });
       setItems(Array.isArray(data.items) ? data.items : []);
       setTotal(Number.isFinite(data.total) ? data.total : 0);
+      setTotalPages(Number.isFinite(data.totalPages) ? data.totalPages : 0);
+      setSize(Number.isFinite(data.size) ? data.size : size);
+      setStatus(Number.isFinite(data.status) ? data.status : 200);
+      setError("");
       if (isDev) {
         console.log("LOAD_MOVIES_OK", { total: data.total, items: data.items?.length });
       }
     } catch (err) {
+      const httpStatus = getHttpStatusFromError(err);
+      const uiMessage = getUiErrorMessage(err, httpStatus);
+      setItems([]);
+      setTotal(0);
+      setTotalPages(0);
+      setStatus(httpStatus);
+      setError(uiMessage);
       if (isDev) {
         console.error("LOAD_MOVIES_FAIL", err);
       }
       console.error("Error cargando peliculas:", err);
-      showToast("error", "No se pudo cargar el catalogo", err.message);
+      showToast("error", "No se pudo cargar el catalogo", uiMessage);
     } finally {
       setLoading(false);
     }
@@ -186,9 +235,13 @@ export default function AdminCatalogo() {
     }
 
     try {
-      const refreshed = await listMovies({ q: query, page, size, sort: "fechaSalida", asc: false });
+      const refreshed = await listMovies(accessToken, { q: query, page, size, sort: "fechaSalida", asc: false });
       setItems(Array.isArray(refreshed.items) ? refreshed.items : []);
       setTotal(Number.isFinite(refreshed.total) ? refreshed.total : 0);
+      setTotalPages(Number.isFinite(refreshed.totalPages) ? refreshed.totalPages : 0);
+      setSize(Number.isFinite(refreshed.size) ? refreshed.size : size);
+      setStatus(Number.isFinite(refreshed.status) ? refreshed.status : 200);
+      setError("");
       emitDevEvent("ADMIN_REFRESH_OK", {
         source: "DEV_VERIFY",
         page,
@@ -400,7 +453,7 @@ export default function AdminCatalogo() {
       <header className="topbar">
         <div className="container row admin-topbar">
           <div>
-            <h2>Admin catalogo</h2>
+            <h2>Administración de catálogo</h2>
             <p className="muted">Gestiona altas, cambios y retiros.</p>
           </div>
           <div className="grow">
@@ -417,7 +470,7 @@ export default function AdminCatalogo() {
           </button>
           {isDev ? (
             <button className="btn-secondary" onClick={runDevVerification}>
-              Run verification (DEV)
+              Ejecutar verificación (DEV)
             </button>
           ) : null}
         </div>
@@ -425,6 +478,11 @@ export default function AdminCatalogo() {
 
       <main className="container admin-container">
         {loading ? <p className="muted">Cargando catalogo...</p> : null}
+
+        {!loading && isUnauthorized ? <p className="muted">No autenticado. Inicia sesión para continuar.</p> : null}
+        {!loading && isForbidden ? <p className="muted">No autorizado.</p> : null}
+        {!loading && isValidationError ? <p className="muted">{error}</p> : null}
+        {!loading && hasGenericError ? <p className="muted">{error}</p> : null}
 
         <div className="admin-table-wrapper">
           <table className="admin-table">
@@ -439,10 +497,10 @@ export default function AdminCatalogo() {
               </tr>
             </thead>
             <tbody>
-              {filteredItems.length === 0 && !loading ? (
+              {showEmptyState ? (
                 <tr>
                   <td colSpan={6} className="muted">
-                    No hay peliculas para mostrar.
+                    No hay películas para mostrar.
                   </td>
                 </tr>
               ) : null}
@@ -484,23 +542,25 @@ export default function AdminCatalogo() {
           </table>
         </div>
 
-        <div className="pager admin-pager">
-          <button
-            onClick={() => setPage((p) => Math.max(0, p - 1))}
-            disabled={page === 0}
-          >
-            Anterior
-          </button>
-          <span>
-            Pagina {page + 1} de {pages}
-          </span>
-          <button
-            onClick={() => setPage((p) => Math.min(pages - 1, p + 1))}
-            disabled={page >= pages - 1}
-          >
-            Siguiente
-          </button>
-        </div>
+        {shouldShowPager ? (
+          <div className="pager admin-pager">
+            <button
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              disabled={page <= 0}
+            >
+              Anterior
+            </button>
+            <span>
+              Página {page + 1} de {totalPages}
+            </span>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+              disabled={totalPages === 0 || page >= totalPages - 1}
+            >
+              Siguiente
+            </button>
+          </div>
+        ) : null}
       </main>
 
       <AdminMovieFormModal

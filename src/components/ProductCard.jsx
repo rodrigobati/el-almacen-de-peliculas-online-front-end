@@ -67,14 +67,24 @@ export default function ProductCard({ item, onOpen }) {
 
   async function handleAddToCart(e) {
     e.stopPropagation();
-    
-    if (!isAuthenticated) {
+
+    const devClienteId = (() => {
+      try {
+        return localStorage.getItem("clienteId") || "";
+      } catch {
+        return "";
+      }
+    })();
+
+    const allowDevFallback = Boolean(devClienteId) && import.meta.env.DEV;
+
+    if (!isAuthenticated && !allowDevFallback) {
       setShowLoginModal(true);
       return;
     }
 
     const accessToken = keycloak?.token;
-    if (!accessToken) {
+    if (!accessToken && !allowDevFallback) {
       showError("No se pudo autenticar", {
         description: "Volvé a iniciar sesión e intentá de nuevo."
       });

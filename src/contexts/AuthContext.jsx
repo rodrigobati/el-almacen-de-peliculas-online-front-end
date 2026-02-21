@@ -8,6 +8,24 @@ import {
 
 const AuthContext = createContext();
 
+function extractRoles(userInfo) {
+  if (!userInfo) {
+    return [];
+  }
+
+  const realmRoles = Array.isArray(userInfo?.realm_access?.roles)
+    ? userInfo.realm_access.roles
+    : [];
+
+  const resourceRoles = Object.values(userInfo?.resource_access || {})
+    .flatMap((resource) => (Array.isArray(resource?.roles) ? resource.roles : []));
+
+  return [...new Set([...realmRoles, ...resourceRoles])];
+}
+
+const ADMIN_ROLE = "ROLE_ADMIN";
+
+
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
@@ -19,6 +37,7 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState(null);
+  const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
   const isDev = import.meta.env?.DEV;
 
@@ -31,6 +50,9 @@ export const AuthProvider = ({ children }) => {
           setIsAuthenticated(authenticated);
           if (authenticated) {
             setUser(getUserInfo());
+            setToken(keycloak.token || null);
+          } else {
+            setToken(null);
           }
           setLoading(false);
         }
@@ -49,8 +71,10 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     const updateAuth = () => {
-      setIsAuthenticated(isLoggedIn());
-      setUser(isLoggedIn() ? getUserInfo() : null);
+      const authenticated = isLoggedIn();
+      setIsAuthenticated(authenticated);
+      setUser(authenticated ? getUserInfo() : null);
+      setToken(authenticated ? keycloak.token || null : null);
     };
 
     keycloak.onAuthSuccess = updateAuth;
@@ -64,6 +88,7 @@ export const AuthProvider = ({ children }) => {
           if (isDev) {
             console.log("TOKEN_REFRESH_OK");
           }
+          updateAuth();
         })
         .catch(() => {
           if (isDev) {
@@ -71,6 +96,7 @@ export const AuthProvider = ({ children }) => {
           }
           setIsAuthenticated(false);
           setUser(null);
+          setToken(null);
         });
     };
 
@@ -81,11 +107,21 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
+  const roles = extractRoles(user);
+
+  const hasRole = (roleName) => Array.isArray(roles) && roles.includes(roleName);
+  const isAdmin = hasRole(ADMIN_ROLE);
+
+  // Contract: cualquier consumidor de useAuth() recibe siempre token/roles/user sincronizados.
   const value = {
     isAuthenticated,
     user,
+    token,
+    roles,
     loading,
     keycloak,
+    hasRole,
+    isAdmin,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
