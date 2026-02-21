@@ -118,11 +118,19 @@ function mapCarritoItem(item = {}) {
 }
 
 function mapCarrito(dto = {}) {
+  const items = Array.isArray(dto.items) ? dto.items.map(mapCarritoItem) : [];
+  const subtotalDesdeItems = items.reduce(
+    (acumulado, item) => acumulado + asNumber(item.subtotal),
+    0
+  );
+  const subtotal = asNumber(dto.subtotal ?? dto.total ?? subtotalDesdeItems);
+  const total = asNumber(dto.total ?? dto.totalFinal ?? subtotal);
+
   return {
-    items: Array.isArray(dto.items) ? dto.items.map(mapCarritoItem) : [],
-    subtotal: asNumber(dto.subtotal),
+    items,
+    subtotal,
     descuentoAplicado: asNumber(dto.descuentoAplicado),
-    total: asNumber(dto.totalFinal)
+    total
   };
 }
 

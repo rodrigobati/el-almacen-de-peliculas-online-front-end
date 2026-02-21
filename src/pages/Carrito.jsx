@@ -272,6 +272,21 @@ export default function Carrito() {
     );
   }
 
+  const subtotalResumen = Number(
+    carrito.subtotal ??
+      carrito.total ??
+      carrito.items.reduce(
+        (acumulado, item) =>
+          acumulado +
+          Number(
+            item.subtotal ??
+              Number(item.precioUnitario ?? 0) * Number(item.cantidad ?? 0)
+          ),
+        0
+      )
+  );
+  const totalResumen = Number(carrito.total ?? subtotalResumen);
+
   return (
     <div className="carrito-page">
       <div className="container">
@@ -317,7 +332,7 @@ export default function Carrito() {
           <div className="carrito-summary">
             <div className="summary-row">
               <span className="summary-label">{t("cart.summarySubtotal")}</span>
-              <span>${(carrito.subtotal ?? carrito.total).toLocaleString()}</span>
+              <span>${subtotalResumen.toLocaleString()}</span>
             </div>
             <div className="summary-row">
               <span className="summary-label">{t("cart.summaryDiscount")}</span>
@@ -325,7 +340,7 @@ export default function Carrito() {
             </div>
             <div className="summary-row">
               <span className="summary-label">{t("cart.summaryTotal")}</span>
-              <span className="summary-total">${carrito.total.toLocaleString()}</span>
+              <span className="summary-total">${totalResumen.toLocaleString()}</span>
             </div>
             <button
               type="button"
