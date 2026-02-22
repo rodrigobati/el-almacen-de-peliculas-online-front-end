@@ -1,21 +1,23 @@
 import { useState, useEffect } from "react";
 import { obtenerCupones } from "../api/descuentos";
 import { DescuentosCard } from "../components/DescuentosCard";
+import { useAuth } from "../contexts/AuthContext";
 
 export const Descuentos = () => {
+  const { token } = useAuth();
   const [cupones, setCupones] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     cargarCupones();
-  }, []);
+  }, [token]);
 
   const cargarCupones = async () => {
     try {
       setCargando(true);
       setError(null);
-      const datos = await obtenerCupones();
+      const datos = await obtenerCupones(token);
       setCupones(datos);
     } catch (err) {
       setError("Error al cargar los descuentos");

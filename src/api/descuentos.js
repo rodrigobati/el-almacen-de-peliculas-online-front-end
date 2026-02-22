@@ -1,10 +1,16 @@
 import { API_BASE } from './config';
 
-export const obtenerCupones = async () => {
+export const obtenerCupones = async (accessToken) => {
   try {
-    console.log('Llamando a:', `${API_BASE}/descuentos/listar`); // Para debugging
+    const headers = {};
     
-    const response = await fetch(`${API_BASE}/descuentos/listar`);
+    if (accessToken) {
+      headers['Authorization'] = `Bearer ${accessToken}`;
+    }
+    
+    const response = await fetch(`${API_BASE}/descuentos/listar`, {
+      headers
+    });
     
     if (!response.ok) {
       throw new Error(`Error ${response.status}: ${response.statusText}`);
@@ -12,7 +18,6 @@ export const obtenerCupones = async () => {
     
     const data = await response.json();
     
-    // Validar que la respuesta sea un array
     if (!Array.isArray(data)) {
       throw new Error('La respuesta no es un array válido');
     }
