@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { obtenerCupones } from "../api/descuento";
-import { DescuentoCard } from "../components/DescuentoCard";
+import { obtenerCupones } from "../api/descuentos";
+import { DescuentosCard } from "../components/DescuentosCard";
 
 export const Descuentos = () => {
   const [cupones, setCupones] = useState([]);
@@ -42,7 +42,7 @@ export const Descuentos = () => {
       {cupones.length > 0 ? (
         <div className="cupones-grid">
           {cupones.map((cupon) => (
-            <DescuentoCard key={cupon.id} cupon={cupon} />
+            <DescuentosCard key={cupon.id} cupon={cupon} />
           ))}
         </div>
       ) : (

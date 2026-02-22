@@ -1,4 +1,4 @@
-export const DescuentoCard = ({ cupon }) => {
+export const DescuentosCard = ({ cupon }) => {
   const esActivo = () => {
     const hoy = new Date();
     const inicio = new Date(cupon.fechaInicio);
@@ -16,8 +16,10 @@ export const DescuentoCard = ({ cupon }) => {
   };
 
   return (
-    <div className="descuento-card">
-      <div className={`descuento-header ${esActivo() ? "activo" : "inactivo"}`}>
+    <div className="descuentos-card">
+      <div
+        className={`descuentos-header ${esActivo() ? "activo" : "inactivo"}`}
+      >
         <h3>{cupon.nombre}</h3>
         <span
           className={`badge ${esActivo() ? "badge-activo" : "badge-inactivo"}`}
@@ -26,18 +28,18 @@ export const DescuentoCard = ({ cupon }) => {
         </span>
       </div>
 
-      <div className="descuento-body">
+      <div className="descuentos-body">
         {cupon.porcentaje && (
-          <div className="descuento">
-            <span className="descuento-valor">{cupon.porcentaje}%</span>
-            <span className="descuento-texto">de descuento</span>
+          <div className="descuentos">
+            <span className="descuentos-valor">{cupon.porcentaje}%</span>
+            <span className="descuentos-texto">de descuento</span>
           </div>
         )}
 
         {cupon.monto && (
-          <div className="descuento">
-            <span className="descuento-valor">${cupon.monto}</span>
-            <span className="descuento-texto">de descuento</span>
+          <div className="descuentos">
+            <span className="descuentos-valor">${cupon.monto}</span>
+            <span className="descuentos-texto">de descuento</span>
           </div>
         )}
 
@@ -51,7 +53,7 @@ export const DescuentoCard = ({ cupon }) => {
         </div>
       </div>
 
-      <div className="descuento-footer">
+      <div className="descuentos-footer">
         <button className="btn-copiar" onClick={copiarCodigo}>
           Copiar código
         </button>
