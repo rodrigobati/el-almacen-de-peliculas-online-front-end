@@ -40,7 +40,7 @@ export default function AdminDescuentos() {
     try {
       setLoading(true);
       const datos = await listarTodosCupones(accessToken);
-      setCupones(datos);
+      setCupones(datos.reverse()); // Mostrar los más recientes primero
     } catch (error) {
       mostrarToast("Error", "No se pudieron cargar los cupones", "error");
       console.error(error);
