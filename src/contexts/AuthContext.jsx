@@ -23,7 +23,9 @@ function extractRoles(userInfo) {
   return [...new Set([...realmRoles, ...resourceRoles])];
 }
 
-const ADMIN_ROLE = "ROLE_ADMIN";
+// Recognize common admin role names (Keycloak realm/resource roles or SPRING authorities)
+// Match case-insensitively. Do not assume a single canonical name from Keycloak.
+const ADMIN_ROLE_ALIASES = ["admin", "role_admin"];
 
 
 export const useAuth = () => {
@@ -38,8 +40,11 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
+  const [tokenParsed, setTokenParsed] = useState(null);
   const [loading, setLoading] = useState(true);
   const isDev = import.meta.env?.DEV;
+
+  const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
     let isMounted = true; // Flag para evitar actualizaciones si el componente se desmonta
@@ -51,16 +56,20 @@ export const AuthProvider = ({ children }) => {
           if (authenticated) {
             setUser(getUserInfo());
             setToken(keycloak.token || null);
+            setTokenParsed(keycloak.tokenParsed || null);
           } else {
             setToken(null);
+            setTokenParsed(null);
           }
           setLoading(false);
+          setInitialized(true);
         }
       })
       .catch((error) => {
         console.error("Error inicializando Keycloak:", error);
         if (isMounted) {
           setLoading(false);
+          setInitialized(true);
         }
       });
 
@@ -75,6 +84,7 @@ export const AuthProvider = ({ children }) => {
       setIsAuthenticated(authenticated);
       setUser(authenticated ? getUserInfo() : null);
       setToken(authenticated ? keycloak.token || null : null);
+      setTokenParsed(authenticated ? keycloak.tokenParsed || null : null);
     };
 
     keycloak.onAuthSuccess = updateAuth;
@@ -107,10 +117,22 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
-  const roles = extractRoles(user);
+  // Derive roles from the parsed token (JWT claims), not from userInfo.
+  // keycloak.tokenParsed contains `realm_access` and `resource_access` claims.
+  const roles = extractRoles(tokenParsed);
 
   const hasRole = (roleName) => Array.isArray(roles) && roles.includes(roleName);
-  const isAdmin = hasRole(ADMIN_ROLE);
+
+  const hasAdminRole = (rolesList) => {
+    if (!Array.isArray(rolesList)) return false;
+    return rolesList.some((r) => {
+      if (typeof r !== "string") return false;
+      const lower = r.toLowerCase();
+      return ADMIN_ROLE_ALIASES.includes(lower);
+    });
+  };
+
+  const isAdmin = hasAdminRole(roles);
 
   // Contract: cualquier consumidor de useAuth() recibe siempre token/roles/user sincronizados.
   const value = {
@@ -118,9 +140,11 @@ export const AuthProvider = ({ children }) => {
     user,
     token,
     roles,
-    loading,
+    loading, // existing contract: `loading` used across app to hide links while init in progress
+    authInitialized: initialized, // new: explicitly indicate Keycloak init completed
     keycloak,
     hasRole,
+    hasAdminRole,
     isAdmin,
   };
 

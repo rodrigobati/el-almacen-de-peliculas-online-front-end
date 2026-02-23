@@ -31,9 +31,11 @@ function AppLayout() {
           <Link to="/compras" className="nav-cart-btn">
             📦 {t("navigation.purchases")}
           </Link>
-          <Link to="/descuentos" className="nav-cart-btn">
-            🎟 {t("navigation.discounts")}
-          </Link>
+          {!loading && isAuthenticated && isAdmin && (
+            <Link to="/descuentos" className="nav-cart-btn">
+              🎟 {t("navigation.discounts")}
+            </Link>
+          )}
           <LoginButton />
         </div>
       </header>
@@ -52,7 +54,14 @@ function AppLayout() {
           <Route path="/carrito" element={<Carrito />} />
           <Route path="/compras" element={<Compras />} />
           <Route path="/compras/:id" element={<CompraDetalle />} />
-          <Route path="/descuentos" element={<Descuentos />} />
+          <Route
+            path="/descuentos"
+            element={
+              <AdminRoute>
+                <Descuentos />
+              </AdminRoute>
+            }
+          />
         </Routes>
       </main>
     </div>
