@@ -1356,6 +1356,136 @@ box-shadow: 0 8px 25px rgba(155, 89, 182, 0.3);
   transform: none;
 }
 
+/* Admin Descuentos - Header */
+.admin-descuentos-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.admin-descuentos-header h3 {
+  margin: 0;
+}
+
+/* Tabla de cupones */
+.cupones-lista {
+  overflow-x: auto;
+}
+
+.cupones-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: rgba(15, 23, 42, 0.5);
+  border-radius: 0.75rem;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.cupones-table thead {
+  background: rgba(6, 182, 212, 0.1);
+}
+
+.cupones-table th {
+  padding: 1rem;
+  text-align: left;
+  font-weight: 600;
+  color: var(--accent);
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--border);
+}
+
+.cupones-table tbody tr {
+  border-bottom: 1px solid var(--border);
+  transition: background 0.2s ease;
+}
+
+.cupones-table tbody tr:hover {
+  background: rgba(100, 116, 139, 0.05);
+}
+
+.cupones-table td {
+  padding: 1rem;
+  color: var(--text);
+}
+
+.cupon-nombre {
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.cupon-monto {
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.4rem 0.8rem;
+  border-radius: 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.badge-activo {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.badge-inactivo {
+  background: rgba(148, 163, 184, 0.15);
+  color: #94a3b8;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.sin-cupones {
+  text-align: center;
+  padding: 3rem 1rem;
+  background: rgba(15, 23, 42, 0.3);
+  border-radius: 0.75rem;
+  border: 1px dashed var(--border);
+}
+
+.sin-cupones p {
+  margin: 0 0 1.5rem 0;
+  color: var(--text-muted);
+  font-size: 1.1rem;
+}
+
+/* Modal para formulario de cupón */
+.modal-cupon-form {
+  max-width: 600px;
+}
+
+.modal-cupon-form h3 {
+  margin: 0 0 1.5rem 0;
+  color: var(--accent);
+}
+
+.btn-cancelar {
+  padding: 0.875rem 2rem;
+  font-size: 1rem;
+  font-weight: 600;
+  background: rgba(148, 163, 184, 0.15);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-cancelar:hover {
+  background: rgba(148, 163, 184, 0.25);
+  border-color: #94a3b8;
+}
+
 /* Toast personalizado para cupones */
 .toast {
   z-index: 1100;

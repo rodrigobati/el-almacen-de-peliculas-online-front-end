@@ -29,6 +29,35 @@ export const obtenerCupones = async (accessToken) => {
   }
 };
 
+export const listarTodosCupones = async (accessToken) => {
+  try {
+    if (!accessToken) {
+      throw new Error('Token de acceso requerido para listar cupones');
+    }
+    
+    const response = await fetch(`${API_BASE}/descuentos/listar`, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Error ${response.status}: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    
+    if (!Array.isArray(data)) {
+      throw new Error('La respuesta no es un array válido');
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error en listarTodosCupones:', error);
+    throw error;
+  }
+};
+
 export const crearCupon = async (cuponData, accessToken) => {
   try {
     if (!accessToken) {

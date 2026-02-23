@@ -1,11 +1,16 @@
-import { useState } from "react";
-import { crearCupon } from "../api/descuentos";
+import { useState, useEffect } from "react";
+import { crearCupon, listarTodosCupones } from "../api/descuentos";
 import { useAuth } from "../contexts/AuthContext";
 import ConfirmModal from "./ConfirmModal";
 import Toast from "./Toast";
 
 export default function AdminDescuentos() {
-  const { token } = useAuth();
+  const { keycloak } = useAuth();
+  const accessToken = keycloak?.token;
+  const [cupones, setCupones] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [creando, setCreando] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     nombre: "",
     monto: "",
@@ -13,7 +18,6 @@ export default function AdminDescuentos() {
     fechaFin: "",
   });
 
-  const [loading, setLoading] = useState(false);
   const [toastConfig, setToastConfig] = useState({
     open: false,
     title: "",
@@ -25,6 +29,45 @@ export default function AdminDescuentos() {
     title: "",
     message: "",
   });
+
+  useEffect(() => {
+    if (accessToken) {
+      cargarCupones();
+    }
+  }, [accessToken]);
+
+  const cargarCupones = async () => {
+    try {
+      setLoading(true);
+      const datos = await listarTodosCupones(accessToken);
+      setCupones(datos);
+    } catch (error) {
+      mostrarToast("Error", "No se pudieron cargar los cupones", "error");
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const abrirModalCrear = () => {
+    setFormData({
+      nombre: "",
+      monto: "",
+      fechaInicio: "",
+      fechaFin: "",
+    });
+    setModalOpen(true);
+  };
+
+  const cerrarModal = () => {
+    setModalOpen(false);
+    setFormData({
+      nombre: "",
+      monto: "",
+      fechaInicio: "",
+      fechaFin: "",
+    });
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -87,7 +130,7 @@ export default function AdminDescuentos() {
   };
 
   const procesarCreacion = async () => {
-    setLoading(true);
+    setCreando(true);
     setConfirmConfig({ ...confirmConfig, open: false });
 
     try {
@@ -98,16 +141,11 @@ export default function AdminDescuentos() {
         fechaFin: formData.fechaFin,
       };
 
-      await crearCupon(cuponParaEnviar, token);
+      await crearCupon(cuponParaEnviar, accessToken);
       mostrarToast("✅ Éxito", "Cupón creado exitosamente", "success");
 
-      // Limpiar formulario
-      setFormData({
-        nombre: "",
-        monto: "",
-        fechaInicio: "",
-        fechaFin: "",
-      });
+      cerrarModal();
+      cargarCupones(); // Recargar la lista
     } catch (error) {
       mostrarToast(
         "❌ Error",
@@ -115,78 +153,166 @@ export default function AdminDescuentos() {
         "error",
       );
     } finally {
-      setLoading(false);
+      setCreando(false);
     }
   };
 
+  const esActivo = (cupon) => {
+    const hoy = new Date();
+    const inicio = new Date(cupon.fechaInicio);
+    const fin = new Date(cupon.fechaFin);
+    return hoy >= inicio && hoy <= fin;
+  };
+
+  const formatearFecha = (fecha) => {
+    return new Date(fecha).toLocaleDateString("es-AR");
+  };
+
+  if (loading) {
+    return (
+      <div className="admin-descuentos">
+        <p>Cargando cupones...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="admin-descuentos">
-      <h3>Crear Nuevo Cupón de Descuento</h3>
+      <div className="admin-descuentos-header">
+        <h3>Administrar Cupones de Descuento</h3>
+        <button className="btn btn-primary" onClick={abrirModalCrear}>
+          ➕ Crear Nuevo Cupón
+        </button>
+      </div>
 
-      <form onSubmit={handleSubmit} className="cupon-form">
-        <div className="form-grid-2">
-          <div className="form-field">
-            <label htmlFor="nombre">Nombre del Cupón *</label>
-            <input
-              type="text"
-              id="nombre"
-              name="nombre"
-              value={formData.nombre}
-              onChange={handleChange}
-              placeholder="Ej: CINE20"
-              disabled={loading}
-              required
-            />
-          </div>
-
-          <div className="form-field">
-            <label htmlFor="monto">Monto de Descuento ($)</label>
-            <input
-              type="number"
-              id="monto"
-              name="monto"
-              value={formData.monto}
-              onChange={handleChange}
-              placeholder="Ej: 500"
-              min="0"
-              step="0.01"
-              disabled={loading}
-            />
-          </div>
-
-          <div className="form-field">
-            <label htmlFor="fechaInicio">Fecha de Inicio *</label>
-            <input
-              type="date"
-              id="fechaInicio"
-              name="fechaInicio"
-              value={formData.fechaInicio}
-              onChange={handleChange}
-              disabled={loading}
-              required
-            />
-          </div>
-
-          <div className="form-field">
-            <label htmlFor="fechaFin">Fecha de Fin *</label>
-            <input
-              type="date"
-              id="fechaFin"
-              name="fechaFin"
-              value={formData.fechaFin}
-              onChange={handleChange}
-              disabled={loading}
-              required
-            />
-          </div>
+      {cupones.length > 0 ? (
+        <div className="cupones-lista">
+          <table className="cupones-table">
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Monto</th>
+                <th>Fecha Inicio</th>
+                <th>Fecha Fin</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {cupones.map((cupon) => (
+                <tr
+                  key={cupon.id}
+                  className={esActivo(cupon) ? "activo" : "inactivo"}
+                >
+                  <td className="cupon-nombre">{cupon.nombre}</td>
+                  <td className="cupon-monto">${cupon.monto}</td>
+                  <td>{formatearFecha(cupon.fechaInicio)}</td>
+                  <td>{formatearFecha(cupon.fechaFin)}</td>
+                  <td>
+                    <span
+                      className={`badge ${esActivo(cupon) ? "badge-activo" : "badge-inactivo"}`}
+                    >
+                      {esActivo(cupon) ? "Activo" : "Inactivo"}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-
-        <div className="form-actions">
-          <button type="submit" className="btn btn-primary" disabled={loading}>
-            {loading ? "Creando..." : "✅ Crear Cupón"}
+      ) : (
+        <div className="sin-cupones">
+          <p>No hay cupones creados aún.</p>
+          <button className="btn btn-primary" onClick={abrirModalCrear}>
+            Crear el primer cupón
           </button>
         </div>
-      </form>
+      )}
+
+      {/* Modal para crear cupón */}
+      {modalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content modal-cupon-form">
+            <h3>Crear Nuevo Cupón de Descuento</h3>
+
+            <form onSubmit={handleSubmit} className="cupon-form">
+              <div className="form-grid-2">
+                <div className="form-field">
+                  <label htmlFor="nombre">Nombre del Cupón *</label>
+                  <input
+                    type="text"
+                    id="nombre"
+                    name="nombre"
+                    value={formData.nombre}
+                    onChange={handleChange}
+                    placeholder="Ej: CINE20"
+                    disabled={creando}
+                    required
+                  />
+                </div>
+
+                <div className="form-field">
+                  <label htmlFor="monto">Monto de Descuento ($)</label>
+                  <input
+                    type="number"
+                    id="monto"
+                    name="monto"
+                    value={formData.monto}
+                    onChange={handleChange}
+                    placeholder="Ej: 500"
+                    min="0"
+                    step="0.01"
+                    disabled={creando}
+                  />
+                </div>
+
+                <div className="form-field">
+                  <label htmlFor="fechaInicio">Fecha de Inicio *</label>
+                  <input
+                    type="date"
+                    id="fechaInicio"
+                    name="fechaInicio"
+                    value={formData.fechaInicio}
+                    onChange={handleChange}
+                    disabled={creando}
+                    required
+                  />
+                </div>
+
+                <div className="form-field">
+                  <label htmlFor="fechaFin">Fecha de Fin *</label>
+                  <input
+                    type="date"
+                    id="fechaFin"
+                    name="fechaFin"
+                    value={formData.fechaFin}
+                    onChange={handleChange}
+                    disabled={creando}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="form-actions">
+                <button
+                  type="button"
+                  className="btn btn-cancelar"
+                  onClick={cerrarModal}
+                  disabled={creando}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={creando}
+                >
+                  {creando ? "Creando..." : "✅ Crear Cupón"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       <Toast
         open={toastConfig.open}
