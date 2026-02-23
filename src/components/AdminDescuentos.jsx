@@ -8,7 +8,6 @@ export default function AdminDescuentos() {
   const { token } = useAuth();
   const [formData, setFormData] = useState({
     nombre: "",
-    porcentaje: "",
     monto: "",
     fechaInicio: "",
     fechaFin: "",
@@ -50,25 +49,6 @@ export default function AdminDescuentos() {
       return false;
     }
 
-    if (!formData.porcentaje && !formData.monto) {
-      mostrarToast(
-        "Error",
-        "Debes ingresar porcentaje o monto de descuento",
-        "error",
-      );
-      return false;
-    }
-
-    if (
-      formData.porcentaje &&
-      (isNaN(formData.porcentaje) ||
-        formData.porcentaje < 0 ||
-        formData.porcentaje > 100)
-    ) {
-      mostrarToast("Error", "El porcentaje debe estar entre 0 y 100", "error");
-      return false;
-    }
-
     if (formData.monto && (isNaN(formData.monto) || formData.monto < 0)) {
       mostrarToast("Error", "El monto debe ser un número positivo", "error");
       return false;
@@ -101,9 +81,7 @@ export default function AdminDescuentos() {
       setConfirmConfig({
         open: true,
         title: "Confirmar creación de cupón",
-        message: `¿Crear cupón "${formData.nombre}" con descuento de ${
-          formData.porcentaje || formData.monto
-        }?`,
+        message: `¿Crear cupón "${formData.nombre}" con descuento de ${formData.monto}?`,
       });
     }
   };
@@ -115,9 +93,6 @@ export default function AdminDescuentos() {
     try {
       const cuponParaEnviar = {
         nombre: formData.nombre,
-        porcentaje: formData.porcentaje
-          ? parseFloat(formData.porcentaje)
-          : null,
         monto: formData.monto ? parseFloat(formData.monto) : null,
         fechaInicio: formData.fechaInicio,
         fechaFin: formData.fechaFin,
@@ -129,7 +104,6 @@ export default function AdminDescuentos() {
       // Limpiar formulario
       setFormData({
         nombre: "",
-        porcentaje: "",
         monto: "",
         fechaInicio: "",
         fechaFin: "",
@@ -162,22 +136,6 @@ export default function AdminDescuentos() {
               placeholder="Ej: CINE20"
               disabled={loading}
               required
-            />
-          </div>
-
-          <div className="form-field">
-            <label htmlFor="porcentaje">Porcentaje de Descuento (%)</label>
-            <input
-              type="number"
-              id="porcentaje"
-              name="porcentaje"
-              value={formData.porcentaje}
-              onChange={handleChange}
-              placeholder="Ej: 20"
-              min="0"
-              max="100"
-              step="0.01"
-              disabled={loading}
             />
           </div>
 
