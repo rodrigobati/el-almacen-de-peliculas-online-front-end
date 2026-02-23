@@ -8,7 +8,7 @@ export const obtenerCupones = async (accessToken) => {
       headers['Authorization'] = `Bearer ${accessToken}`;
     }
     
-    const response = await fetch(`${API_BASE}/descuentos/listar`, {
+    const response = await fetch(`${API_BASE}/descuentos/listar-vigentes`, {
       headers
     });
     
