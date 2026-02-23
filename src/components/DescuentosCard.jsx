@@ -32,7 +32,7 @@ export const DescuentosCard = ({ cupon }) => {
         {cupon.monto && (
           <div className="descuentos">
             <span className="descuentos-valor">${cupon.monto}</span>
-            <span className="descuentos-texto">de descuento</span>
+            <span className="descuentos-texto"> de descuento</span>
           </div>
         )}
 
