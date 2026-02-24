@@ -7,7 +7,6 @@ import Compras from "./pages/Compras";
 import CompraDetalle from "./pages/CompraDetalle";
 import AdminCatalogo from "./pages/AdminCatalogo";
 import LoginButton from "./components/LoginButton";
-import { Descuentos } from "./pages/Descuentos";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminRoute from "./components/AdminRoute";
 import { t } from "./i18n/t";
@@ -31,9 +30,6 @@ function AppLayout() {
           <Link to="/compras" className="nav-cart-btn">
             📦 {t("navigation.purchases")}
           </Link>
-          <Link to="/descuentos" className="nav-cart-btn">
-            🤑 {t("navigation.discounts")}
-          </Link>
           <LoginButton />
         </div>
       </header>
@@ -52,7 +48,6 @@ function AppLayout() {
           <Route path="/carrito" element={<Carrito />} />
           <Route path="/compras" element={<Compras />} />
           <Route path="/compras/:id" element={<CompraDetalle />} />
-          <Route path="/descuentos" element={<Descuentos />} />
         </Routes>
       </main>
     </div>

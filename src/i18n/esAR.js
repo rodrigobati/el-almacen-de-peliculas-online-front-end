@@ -2,8 +2,7 @@ const esAR = {
   navigation: {
     admin: "Administración",
     cart: "Carrito",
-    purchases: "Compras",
-    discounts: "Cupones de descuento"
+    purchases: "Compras"
   },
   common: {
     loading: "Cargando…",
