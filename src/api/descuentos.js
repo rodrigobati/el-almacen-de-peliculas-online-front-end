@@ -84,4 +84,33 @@ export const crearCupon = async (cuponData, accessToken) => {
     console.error('Error en crearCupon:', error);
     throw error;
   }
+  
+};
+
+export const validarDescuento = async (nombreDescuento, accessToken) => {
+  try {
+    if (!nombreDescuento || !nombreDescuento.trim()) {
+      throw new Error('Nombre de descuento requerido');
+    }
+
+    const url = new URL(`${API_BASE}/descuentos/validar`);
+    url.searchParams.append('codigo', nombreDescuento.trim());
+    
+    const response = await fetch(url.toString(), {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
+      }
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(errorText || `Error ${response.status}`);
+    }
+    
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error en validarDescuento:', error);
+    throw error;
+  }
 };

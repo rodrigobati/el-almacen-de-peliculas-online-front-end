@@ -18,7 +18,9 @@ function AppLayout() {
   return (
     <div className="app">
       <header className="app-header">
-        <h1>El Almacén de Películas</h1>
+        <Link to="/" style={{ textDecoration: "none", color: "inherit" }}>
+          <h1>El Almacén de Películas</h1>
+        </Link>
         <div className="app-actions">
           {!loading && isAuthenticated && isAdmin && (
             <Link to="/admin/catalogo" className="nav-admin-btn">
