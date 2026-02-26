@@ -13,7 +13,7 @@ export default function AdminDescuentos() {
   const [modalOpen, setModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     nombre: "",
-    monto: "",
+    porcentaje: "",
     fechaInicio: "",
     fechaFin: "",
   });
@@ -52,7 +52,7 @@ export default function AdminDescuentos() {
   const abrirModalCrear = () => {
     setFormData({
       nombre: "",
-      monto: "",
+      porcentaje: "",
       fechaInicio: "",
       fechaFin: "",
     });
@@ -63,7 +63,7 @@ export default function AdminDescuentos() {
     setModalOpen(false);
     setFormData({
       nombre: "",
-      monto: "",
+      porcentaje: "",
       fechaInicio: "",
       fechaFin: "",
     });
@@ -92,8 +92,15 @@ export default function AdminDescuentos() {
       return false;
     }
 
-    if (formData.monto && (isNaN(formData.monto) || formData.monto < 0)) {
-      mostrarToast("Error", "El monto debe ser un número positivo", "error");
+    if (
+      formData.porcentaje &&
+      (isNaN(formData.porcentaje) || formData.porcentaje < 0)
+    ) {
+      mostrarToast(
+        "Error",
+        "El porcentaje debe ser un número positivo",
+        "error",
+      );
       return false;
     }
 
@@ -124,7 +131,7 @@ export default function AdminDescuentos() {
       setConfirmConfig({
         open: true,
         title: "Confirmar creación de cupón",
-        message: `¿Crear cupón "${formData.nombre}" con descuento de ${formData.monto}?`,
+        message: `¿Crear cupón "${formData.nombre}" con descuento de ${formData.porcentaje}%?`,
       });
     }
   };
@@ -136,7 +143,9 @@ export default function AdminDescuentos() {
     try {
       const cuponParaEnviar = {
         nombre: formData.nombre,
-        monto: formData.monto ? parseFloat(formData.monto) : null,
+        porcentaje: formData.porcentaje
+          ? parseFloat(formData.porcentaje)
+          : null,
         fechaInicio: formData.fechaInicio,
         fechaFin: formData.fechaFin,
       };
@@ -204,7 +213,7 @@ export default function AdminDescuentos() {
                   className={esActivo(cupon) ? "activo" : "inactivo"}
                 >
                   <td className="cupon-nombre">{cupon.nombre}</td>
-                  <td className="cupon-monto">${cupon.monto}</td>
+                  <td className="cupon-monto">{cupon.porcentaje}%</td>
                   <td>{formatearFecha(cupon.fechaInicio)}</td>
                   <td>{formatearFecha(cupon.fechaFin)}</td>
                   <td>
@@ -251,14 +260,16 @@ export default function AdminDescuentos() {
                 </div>
 
                 <div className="form-field">
-                  <label htmlFor="monto">Monto de Descuento ($)</label>
+                  <label htmlFor="porcentaje">
+                    Porcentaje de Descuento (%)
+                  </label>
                   <input
                     type="number"
-                    id="monto"
-                    name="monto"
-                    value={formData.monto}
+                    id="porcentaje"
+                    name="porcentaje"
+                    value={formData.porcentaje}
                     onChange={handleChange}
-                    placeholder="Ej: 500"
+                    placeholder="Ej: 20"
                     min="0"
                     step="0.01"
                     disabled={creando}

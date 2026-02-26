@@ -29,9 +29,9 @@ export const DescuentosCard = ({ cupon }) => {
       </div>
 
       <div className="descuentos-body">
-        {cupon.monto && (
+        {cupon.porcentaje && (
           <div className="descuentos">
-            <span className="descuentos-valor">${cupon.monto}</span>
+            <span className="descuentos-valor">{cupon.porcentaje}%</span>
             <span className="descuentos-texto">de descuento</span>
           </div>
         )}

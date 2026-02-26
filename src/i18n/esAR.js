@@ -3,7 +3,7 @@ const esAR = {
     admin: "Administración",
     cart: "Carrito",
     purchases: "Compras",
-    discounts: "Cupones de descuento"
+    discounts: "Descuentos"
   },
   common: {
     loading: "Cargando…",
