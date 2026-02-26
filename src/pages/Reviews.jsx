@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
+import apiFetch from "../api/apiFetch";
 import { t } from "../i18n/t";
 
 function ReviewStar({
@@ -47,7 +48,7 @@ function ReviewStars({
 }
 
 export default function Reviews({ peliculaId, peliculaTitulo }) {
-  const { isAuthenticated, user, keycloak } = useAuth();
+  const { isAuthenticated, user, keycloak, token } = useAuth();
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(false);
   const [mostrarForm, setMostrarForm] = useState(false);
@@ -65,12 +66,37 @@ export default function Reviews({ peliculaId, peliculaTitulo }) {
   const cargarReviews = async () => {
     setLoading(true);
     try {
-      const response = await fetch(
-        `http://localhost:9500/api/ratings/pelicula/${peliculaId}`
-      );
+      // Use apiFetch so requests include Authorization when available
+      const response = await apiFetch(`/api/ratings/pelicula/${peliculaId}`, { method: "GET" }, keycloak || token);
       if (response.ok) {
         const data = await response.json();
+        // If some reviews don't include a username, ask the rating service to enrich
+        const missingIds = Array.from(new Set(
+          data
+            .map((r) => r.usuarioId)
+            .filter((id) => id && !data.find((x) => x.usuarioId === id && (x.usuarioUsername || x.username)))
+        ));
+
+        if (missingIds.length > 0) {
+          try {
+            const idsParam = missingIds.join(",");
+            const mResp = await apiFetch(`/api/ratings/usuarios?ids=${encodeURIComponent(idsParam)}`, { method: "GET" }, keycloak || token);
+            if (mResp.ok) {
+              const map = await mResp.json();
+              data.forEach((r) => {
+                if (r.usuarioId && map[r.usuarioId]) r.usuarioUsername = map[r.usuarioId];
+              });
+            }
+          } catch (e) {
+            console.warn("No se pudo obtener nombres de usuario desde Keycloak:", e);
+          }
+        }
+
         setReviews(data);
+      } else if (response.status === 401) {
+        // Not authenticated — show empty list but log for debugging
+        console.warn('No autorizado al cargar reviews (401)');
+        setReviews([]);
       } else {
         setReviews([]);
       }
@@ -87,29 +113,21 @@ export default function Reviews({ peliculaId, peliculaTitulo }) {
 
     setEnviando(true);
     try {
-      // Obtener el token y el username de Keycloak
-      const token = keycloak?.token;
-      const usuarioId = user?.preferred_username || user?.sub || "anonymous";
-      
-      console.log("Usuario autenticado:", user); // Para debugging
-      console.log("UsuarioId a enviar:", usuarioId);
-      
-      const response = await fetch(
-        `http://localhost:9500/api/ratings`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
-          body: JSON.stringify({
-            peliculaId: peliculaId,
-            valor: nuevaReview.puntuacion,
-            comentario: nuevaReview.comentario.trim(),
-            usuarioId: usuarioId,
-          }),
-        }
-      );
+      // Use the token subject (Keycloak user id) as usuarioId when sending.
+      // Keep preferred_username for display only.
+      const usuarioId = user?.sub || user?.preferred_username || "anonymous";
+      console.log("Usuario autenticado:", user);
+      console.log("UsuarioId a enviar (sub):", usuarioId);
+
+      // Pass the Keycloak instance as token source so apiFetch will refresh when needed
+      const response = await apiFetch("/api/ratings", {
+        method: "POST",
+        body: {
+          peliculaId: peliculaId,
+          valor: nuevaReview.puntuacion,
+          comentario: nuevaReview.comentario.trim(),
+        },
+      }, keycloak || token);
 
       if (response.ok) {
         const responseData = await response.json();
@@ -146,11 +164,11 @@ export default function Reviews({ peliculaId, peliculaTitulo }) {
     ? reviews.reduce((acc, r) => acc + (r.valor || 0), 0) / reviews.length
     : 0;
 
-  // Verificar si el usuario ya dejó una review
-  const usuarioActual = user?.preferred_username || user?.sub;
-  const usuarioYaReseño = reviews.some(
-    (review) => review.usuarioId === usuarioActual
-  );
+  // Verificar si el usuario ya dejó una review (compare by user id / sub)
+  const usuarioActualId = user?.sub;
+  const usuarioYaReseño = usuarioActualId
+    ? reviews.some((review) => review.usuarioId === usuarioActualId)
+    : false;
 
   return (
     <div className="reviews-container">
@@ -252,7 +270,16 @@ export default function Reviews({ peliculaId, peliculaTitulo }) {
             <div className="review-header-item">
               <div className="review-usuario-info">
                 <span className="review-usuario">
-                  👤 {review.usuarioId || t("reviews.anonymousUser")}
+                  👤 {
+                    // Prefer explicit username if backend provides it
+                    review.usuarioUsername || review.username ||
+                    // If this review belongs to the current user, show their known username
+                    (review.usuarioId === usuarioActualId
+                      ? user?.preferred_username || usuarioActualId
+                      : (review.usuarioId
+                          ? (review.usuarioId.length > 8 ? review.usuarioId.slice(0,8) + '...' : review.usuarioId)
+                          : t("reviews.anonymousUser")))
+                  }
                 </span>
                 <span className="review-fecha">
                   {formatearFecha(review.fechaCreacion)}
