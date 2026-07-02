@@ -10,6 +10,7 @@ import { t } from "../i18n/t";
 
 export default function CatalogPage() {
   const BUILD_TAG = "CATALOGO-DBG-2026-02-14T03";
+  const CATALOG_SUBTITLE = "Películas disponibles";
   const DEFAULT_PAGE_SIZE = 4;
   const [qRaw, setQRaw] = useState("");
   const [query, setQuery] = useState("");
@@ -70,7 +71,7 @@ export default function CatalogPage() {
             try {
               const toFetch = normalizedItems.filter(i => (i.ratingPromedio == null || i.ratingPromedio === 0) && (i.id != null));
               if (toFetch.length === 0) return;
-              const promises = toFetch.map(it => apiFetch(`/api/ratings/pelicula/${it.id}/promedio`, { method: 'GET' }));
+              const promises = toFetch.map(it => apiFetch(`/ratings/pelicula/${it.id}/promedio`, { method: 'GET' }));
               const results = await Promise.all(promises.map(p => p.catch(e => e)));
               const averages = await Promise.all(results.map(async (r, idx) => {
                 if (!r || !r.ok) return null;
@@ -140,7 +141,7 @@ export default function CatalogPage() {
         <div className="container row">
           <h2>Catálogo</h2>
           <small style={{ marginLeft: 12, color: "var(--text-muted)" }}>
-            {BUILD_TAG}
+            {CATALOG_SUBTITLE}
           </small>
           <div className="grow">
             <input

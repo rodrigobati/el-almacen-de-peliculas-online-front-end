@@ -15,6 +15,10 @@ export const obtenerCupones = async (accessToken) => {
     if (!response.ok) {
       throw new Error(`Error ${response.status}: ${response.statusText}`);
     }
+
+    if (response.status === 204) {
+      return [];
+    }
     
     const data = await response.json();
     
@@ -43,6 +47,10 @@ export const listarTodosCupones = async (accessToken) => {
     
     if (!response.ok) {
       throw new Error(`Error ${response.status}: ${response.statusText}`);
+    }
+
+    if (response.status === 204) {
+      return [];
     }
     
     const data = await response.json();

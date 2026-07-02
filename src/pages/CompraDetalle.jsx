@@ -3,6 +3,7 @@ import { useAuth } from "../contexts/AuthContext";
 import useCompraStatus from "../hooks/useCompraStatus";
 import {
   apiErrorMessageKey,
+  purchaseStatusClass,
   purchaseStatusLabel,
   rejectionMessageByCode,
   t
@@ -84,24 +85,29 @@ export default function CompraDetalle() {
         </div>
 
         {isRejected && (
-          <div className="error-box">
-            <p>{rejectionMessageByCode(compra.motivoRechazo)}</p>
-            {compra.detallesRechazo && (
-              <details style={{ fontSize: "0.9rem", opacity: 0.85 }}>
-                <summary>
-                  <strong>{t("common.technicalDetails")}</strong>
-                </summary>
-                <p>{compra.detallesRechazo}</p>
-              </details>
-            )}
+          <div className="purchase-rejection-message" role="status">
+            <div className="purchase-rejection-icon" aria-hidden="true">!</div>
+            <div>
+              <h3>{t("purchaseDetail.rejectedTitle")}</h3>
+              <p>{rejectionMessageByCode(compra.motivoRechazo)}</p>
+              <p className="purchase-rejection-help">{t("purchaseDetail.rejectedHelp")}</p>
+            </div>
           </div>
         )}
         {!isRejected && isPolling && (
-          <p className="loading-text">{t("purchaseDetail.validatingStock")}</p>
+          <div className="purchase-progress-message" role="status" aria-live="polite">
+            <span className="purchase-progress-spinner" aria-hidden="true" />
+            <span>{t("purchaseDetail.validatingStock")}</span>
+          </div>
         )}
 
         <section className="carrito-summary" style={{ marginBottom: "1rem" }}>
-          <p>{t("purchaseDetail.statusLabel")}: {purchaseStatusLabel(compra.estado)}</p>
+          <p className="purchase-status-row">
+            <span>{t("purchaseDetail.statusLabel")}:</span>
+            <span className={purchaseStatusClass(compra.estado)}>
+              {purchaseStatusLabel(compra.estado)}
+            </span>
+          </p>
           <p>{t("purchaseDetail.dateLabel")}: {formatDate(compra.fecha)}</p>
           <p>{t("purchaseDetail.subtotalLabel")}: {formatMoney(compra.subtotal)}</p>
           <p>{t("purchaseDetail.discountLabel")}: {formatMoney(compra.descuentoAplicado)}</p>

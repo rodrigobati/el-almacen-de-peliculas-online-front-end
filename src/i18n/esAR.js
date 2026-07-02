@@ -60,7 +60,9 @@ const esAR = {
     loadError: "No se pudo cargar el detalle de la compra.",
     notFound: "No se encontró la compra.",
     backToPurchases: "Volver a compras",
-    validatingStock: "Validando stock...",
+    validatingStock: "Confirmando compra...",
+    rejectedTitle: "No pudimos confirmar la compra",
+    rejectedHelp: "Podés elegir otra película o volver a intentarlo más tarde.",
     statusLabel: "Estado",
     dateLabel: "Fecha",
     subtotalLabel: "Subtotal",
@@ -74,16 +76,18 @@ const esAR = {
     goToCart: "Ir al carrito"
   },
   purchaseStatus: {
-    CONFIRMADA: "Confirmada",
-    RECHAZADA: "Rechazada",
-    PENDIENTE: "Pendiente",
+    CONFIRMADA: "CONFIRMADA",
+    RECHAZADA: "RECHAZADA",
+    RECHAZADO: "RECHAZADA",
+    PENDING: "PENDIENTE",
+    PENDIENTE: "PENDIENTE",
     DESCONOCIDO: "Desconocido"
   },
   purchaseRejection: {
     STOCK_INSUFICIENTE:
-      "Compra rechazada por falta de stock. El importe fue reintegrado a tu billetera.",
+      "No queda stock disponible para completar esta compra. El importe fue reintegrado a tu billetera.",
     DEFAULT:
-      "La compra fue rechazada. Revisá el detalle para más información."
+      "La compra no pudo completarse. El importe fue reintegrado a tu billetera."
   },
   reviews: {
     title: "⭐ Reseñas",

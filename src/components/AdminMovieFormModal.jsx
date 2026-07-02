@@ -536,7 +536,6 @@ export default function AdminMovieFormModal({
         <h2 id="admin-movie-modal-title" className="modal-title">
           {heading}
         </h2>
-        <div className="field-hint">FRONTEND_BUILD_CHECK_V5_FORMATO_GENERO</div>
         <form className="admin-form" onSubmit={handleSubmit}>
           <div className="admin-form-grid">
             <label className="admin-field">

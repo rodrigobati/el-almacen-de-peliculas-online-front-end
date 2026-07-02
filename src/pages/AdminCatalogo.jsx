@@ -9,10 +9,84 @@ import {
   getMovieDetail,
   createMovie,
   updateMovie,
+  updateMovieStock,
   retireMovie,
 } from "../api/catalogoAdmin";
 import { searchMovies } from "../api/movies";
 import { emitDevEvent } from "../utils/devDiagnostics";
+
+function formatStockValue(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric < 0) {
+    return "0";
+  }
+  return String(Math.trunc(numeric));
+}
+
+function parseStockValue(value) {
+  const trimmed = String(value ?? "").trim();
+  if (!/^\d+$/.test(trimmed)) {
+    return null;
+  }
+  const numeric = Number(trimmed);
+  return Number.isSafeInteger(numeric) ? numeric : null;
+}
+
+function StockCell({ item, disabled, saving, onSave, onInvalid }) {
+  const currentValue = formatStockValue(item?.stockDisponible);
+  const [draft, setDraft] = useState(currentValue);
+
+  useEffect(() => {
+    setDraft(currentValue);
+  }, [currentValue]);
+
+  const commit = () => {
+    if (disabled || saving) {
+      setDraft(currentValue);
+      return;
+    }
+
+    const parsed = parseStockValue(draft);
+    if (parsed === null) {
+      setDraft(currentValue);
+      onInvalid?.();
+      return;
+    }
+
+    if (String(parsed) === currentValue) {
+      return;
+    }
+
+    onSave?.(item, parsed);
+  };
+
+  return (
+    <div className="admin-stock-control">
+      <input
+        className="admin-stock-input"
+        type="number"
+        min="0"
+        step="1"
+        inputMode="numeric"
+        value={draft}
+        aria-label={`Stock de ${item?.titulo || "pelicula"}`}
+        disabled={disabled || saving}
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={commit}
+        onFocus={(event) => event.currentTarget.select()}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.currentTarget.blur();
+          }
+          if (event.key === "Escape") {
+            setDraft(currentValue);
+          }
+        }}
+      />
+      {saving ? <span className="admin-stock-saving">Guardando...</span> : null}
+    </div>
+  );
+}
 
 export default function AdminCatalogo() {
   const { keycloak } = useAuth();
@@ -39,6 +113,7 @@ export default function AdminCatalogo() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [toRetire, setToRetire] = useState(null);
   const [retiredIds, setRetiredIds] = useState(() => new Set());
+  const [stockSavingIds, setStockSavingIds] = useState(() => new Set());
   const isDev = import.meta.env?.DEV;
   const toastIdRef = useRef(0);
 
@@ -60,6 +135,19 @@ export default function AdminCatalogo() {
   const shouldShowPager = totalPages > 0;
 
   const statusFor = (id) => (retiredIds.has(id) ? "Retirada" : "Activa");
+  const isStockSaving = (id) => stockSavingIds.has(id);
+
+  const setStockSaving = (id, saving) => {
+    setStockSavingIds((prev) => {
+      const next = new Set(prev);
+      if (saving) {
+        next.add(id);
+      } else {
+        next.delete(id);
+      }
+      return next;
+    });
+  };
 
   const showToast = (variant, title, description = "") => {
     const toastId = `toast-${Date.now()}-${++toastIdRef.current}`;
@@ -336,6 +424,69 @@ export default function AdminCatalogo() {
     }
   };
 
+  const handleInvalidStock = () => {
+    showToast("error", "Stock invalido", "Ingresá un numero entero mayor o igual a cero.");
+  };
+
+  const handleStockSave = async (item, nextStock) => {
+    if (!item?.id) {
+      return;
+    }
+
+    if (!accessToken) {
+      showToast("error", "Sesion requerida", "Volvé a iniciar sesión.");
+      return;
+    }
+
+    if (!Number.isFinite(Number(item.version))) {
+      showToast("error", "Stock desactualizado", "Refrescá el catalogo antes de modificar esta fila.");
+      return;
+    }
+
+    const previousItem = item;
+    setStockSaving(item.id, true);
+    setItems((current) =>
+      current.map((movie) =>
+        movie.id === item.id ? { ...movie, stockDisponible: nextStock } : movie,
+      ),
+    );
+
+    try {
+      const updated = await updateMovieStock(accessToken, item.id, {
+        stockDisponible: nextStock,
+        version: item.version,
+      });
+      setItems((current) =>
+        current.map((movie) =>
+          movie.id === item.id ? { ...movie, ...updated } : movie,
+        ),
+      );
+      showToast("success", "Stock actualizado", `${item.titulo}: ${nextStock} copias.`);
+    } catch (err) {
+      setItems((current) =>
+        current.map((movie) => (movie.id === item.id ? previousItem : movie)),
+      );
+
+      const httpStatus = getHttpStatusFromError(err);
+      if (httpStatus === 409 || err?.code === "STOCK_VERSION_CONFLICT") {
+        showToast(
+          "error",
+          "Stock desactualizado",
+          "La pelicula cambio en otra ventana. Refresque el catalogo.",
+        );
+        await loadMovies();
+      } else {
+        showToast(
+          "error",
+          "No se pudo actualizar el stock",
+          err?.rawMessage || err?.message || "Intenta nuevamente.",
+        );
+      }
+    } finally {
+      setStockSaving(item.id, false);
+    }
+  };
+
   const handleSubmit = async (payload) => {
     if (!accessToken) {
       showToast("error", "Sesion requerida", "Volvé a iniciar sesión.");
@@ -560,13 +711,14 @@ export default function AdminCatalogo() {
                     <th>Precio</th>
                     <th>Formato / Genero</th>
                     <th>Estado</th>
+                    <th className="admin-stock-col">Stock</th>
                     <th className="admin-actions-col">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
                   {showEmptyState ? (
                     <tr>
-                      <td colSpan={6} className="muted">
+                      <td colSpan={7} className="muted">
                         No hay películas para mostrar.
                       </td>
                     </tr>
@@ -591,6 +743,15 @@ export default function AdminCatalogo() {
                         >
                           {statusFor(item.id)}
                         </span>
+                      </td>
+                      <td className="admin-stock-cell">
+                        <StockCell
+                          item={item}
+                          disabled={pending || statusFor(item.id) === "Retirada"}
+                          saving={isStockSaving(item.id)}
+                          onSave={handleStockSave}
+                          onInvalid={handleInvalidStock}
+                        />
                       </td>
                       <td className="admin-actions">
                         <button

@@ -67,7 +67,7 @@ export default function Reviews({ peliculaId, peliculaTitulo }) {
     setLoading(true);
     try {
       // Use apiFetch so requests include Authorization when available
-      const response = await apiFetch(`/api/ratings/pelicula/${peliculaId}`, { method: "GET" }, keycloak || token);
+      const response = await apiFetch(`/ratings/pelicula/${peliculaId}`, { method: "GET" }, keycloak || token);
       if (response.ok) {
         const data = await response.json();
         // If some reviews don't include a username, ask the rating service to enrich
@@ -80,7 +80,7 @@ export default function Reviews({ peliculaId, peliculaTitulo }) {
         if (missingIds.length > 0) {
           try {
             const idsParam = missingIds.join(",");
-            const mResp = await apiFetch(`/api/ratings/usuarios?ids=${encodeURIComponent(idsParam)}`, { method: "GET" }, keycloak || token);
+            const mResp = await apiFetch(`/ratings/usuarios?ids=${encodeURIComponent(idsParam)}`, { method: "GET" }, keycloak || token);
             if (mResp.ok) {
               const map = await mResp.json();
               data.forEach((r) => {
@@ -120,7 +120,7 @@ export default function Reviews({ peliculaId, peliculaTitulo }) {
       console.log("UsuarioId a enviar (sub):", usuarioId);
 
       // Pass the Keycloak instance as token source so apiFetch will refresh when needed
-      const response = await apiFetch("/api/ratings", {
+      const response = await apiFetch("/ratings", {
         method: "POST",
         body: {
           peliculaId: peliculaId,
