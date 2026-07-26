@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { eliminarDelCarrito, decrementarDelCarrito } from "../api/carrito";
 import { confirmarCompra, getCarrito } from "../api/ventas";
+import { validarDescuento } from "../api/descuentos";
 import Toast from "../components/Toast";
 import ConfirmModal from "../components/ConfirmModal";
 import { apiErrorMessageKey, t } from "../i18n/t";
@@ -23,16 +24,19 @@ export default function Carrito() {
     open: false,
     title: "",
     description: "",
-    variant: "success"
+    variant: "success",
   });
   const [confirmState, setConfirmState] = useState({
     open: false,
     peliculaId: null,
-    titulo: ""
+    titulo: "",
   });
   const [confirmCompraOpen, setConfirmCompraOpen] = useState(false);
   const [confirmandoCompra, setConfirmandoCompra] = useState(false);
   const [clienteId, setClienteId] = useState("");
+  const [nombreDescuento, setNombreDescuento] = useState("");
+  const [descuentoAplicado, setDescuentoAplicado] = useState(null);
+  const [validandoDescuento, setValidandoDescuento] = useState(false);
 
   const accessToken = token;
 
@@ -70,7 +74,7 @@ export default function Carrito() {
         open: true,
         title: "Producto eliminado",
         description: "La película fue removida del carrito.",
-        variant: "success"
+        variant: "success",
       });
     } catch (err) {
       console.error("Error al eliminar:", err);
@@ -78,16 +82,55 @@ export default function Carrito() {
         open: true,
         title: "No se pudo eliminar",
         description: resolveErrorMessage(err),
-        variant: "error"
+        variant: "error",
       });
     }
+  }
+  async function handleAplicarDescuento() {
+    if (!nombreDescuento.trim()) {
+      setToast({
+        open: true,
+        title: "Campo vacío",
+        description: "Ingresá el nombre o código del descuento",
+        variant: "error",
+      });
+      return;
+    }
+
+    try {
+      setValidandoDescuento(true);
+      const cupon = await validarDescuento(nombreDescuento.trim(), accessToken);
+      setDescuentoAplicado(cupon);
+      setToast({
+        open: true,
+        title: "Descuento aplicado",
+        description: `Se aplicó ${cupon.porcentaje}% de descuento`,
+        variant: "success",
+      });
+    } catch (err) {
+      console.error("Error al validar descuento:", err);
+      setDescuentoAplicado(null);
+      setToast({
+        open: true,
+        title: "Descuento inválido",
+        description: "El código ingresado no es válido o está vencido",
+        variant: "error",
+      });
+    } finally {
+      setValidandoDescuento(false);
+    }
+  }
+
+  function handleLimpiarDescuento() {
+    setNombreDescuento("");
+    setDescuentoAplicado(null);
   }
 
   function openConfirm(item) {
     setConfirmState({
       open: true,
       peliculaId: item.peliculaId,
-      titulo: item.titulo
+      titulo: item.titulo,
     });
   }
 
@@ -116,7 +159,7 @@ export default function Carrito() {
         open: true,
         title: "No se pudo decrementar",
         description: resolveErrorMessage(err),
-        variant: "error"
+        variant: "error",
       });
     }
   }
@@ -148,12 +191,17 @@ export default function Carrito() {
     if (confirmandoCompra) return;
     try {
       setConfirmandoCompra(true);
-      const response = await confirmarCompra({}, accessToken);
+      const cupon = nombreDescuento.trim();
+
+      const response = await confirmarCompra(
+        { nombreCupon: cupon.length ? cupon : null },
+        accessToken,
+      );
       setToast({
         open: true,
         title: "Compra confirmada",
         description: "Estamos validando stock. Te mostramos el detalle.",
-        variant: "success"
+        variant: "success",
       });
       setConfirmCompraOpen(false);
       navigate(`/compras/${response.compraId}`);
@@ -162,7 +210,7 @@ export default function Carrito() {
         open: true,
         title: "No se pudo confirmar la compra",
         description: resolveErrorMessage(err),
-        variant: "error"
+        variant: "error",
       });
       setConfirmCompraOpen(false);
     } finally {
@@ -204,7 +252,11 @@ export default function Carrito() {
           {header}
           <div className="error-box">
             <p>{t("cart.authNoToken")}</p>
-            <button onClick={() => keycloak?.login()} className="btn-primary" type="button">
+            <button
+              onClick={() => keycloak?.login()}
+              className="btn-primary"
+              type="button"
+            >
               {t("cart.authSignInAgain")}
             </button>
           </div>
@@ -225,12 +277,24 @@ export default function Carrito() {
               value={clienteId}
               onChange={handleClienteIdChange}
               placeholder="cliente-dev-123"
-              style={{ width: "100%", marginBottom: "0.75rem", padding: "0.6rem" }}
+              style={{
+                width: "100%",
+                marginBottom: "0.75rem",
+                padding: "0.6rem",
+              }}
             />
-            <button onClick={() => keycloak?.login()} className="btn-primary" style={{ marginRight: "0.75rem" }}>
+            <button
+              onClick={() => keycloak?.login()}
+              className="btn-primary"
+              style={{ marginRight: "0.75rem" }}
+            >
               Iniciar sesión
             </button>
-            <button onClick={loadCarrito} className="btn-secondary" type="button">
+            <button
+              onClick={loadCarrito}
+              className="btn-secondary"
+              type="button"
+            >
               {t("cart.retryWithClientId")}
             </button>
           </div>
@@ -280,12 +344,17 @@ export default function Carrito() {
           acumulado +
           Number(
             item.subtotal ??
-              Number(item.precioUnitario ?? 0) * Number(item.cantidad ?? 0)
+              Number(item.precioUnitario ?? 0) * Number(item.cantidad ?? 0),
           ),
-        0
-      )
+        0,
+      ),
   );
-  const totalResumen = Number(carrito.total ?? subtotalResumen);
+
+  const descuentoCalculado = descuentoAplicado
+    ? (subtotalResumen * descuentoAplicado.porcentaje) / 100
+    : 0;
+
+  const totalResumen = subtotalResumen - descuentoCalculado;
 
   return (
     <div className="carrito-page">
@@ -334,13 +403,68 @@ export default function Carrito() {
               <span className="summary-label">{t("cart.summarySubtotal")}</span>
               <span>${subtotalResumen.toLocaleString()}</span>
             </div>
+            <div
+              className="summary-row"
+              style={{
+                flexDirection: "column",
+                alignItems: "flex-start",
+                gap: "0.35rem",
+              }}
+            >
+              <span className="summary-label">Código de descuento</span>
+              <div style={{ display: "flex", gap: "0.5rem", width: "100%" }}>
+                <input
+                  type="text"
+                  value={nombreDescuento}
+                  onChange={(event) => setNombreDescuento(event.target.value)}
+                  placeholder="Ingresá el código"
+                  disabled={validandoDescuento || descuentoAplicado}
+                  style={{ flex: 1, padding: "0.6rem" }}
+                />
+                {!descuentoAplicado ? (
+                  <button
+                    type="button"
+                    onClick={handleAplicarDescuento}
+                    disabled={validandoDescuento || !nombreDescuento.trim()}
+                    className="btn-secondary"
+                    style={{ whiteSpace: "nowrap" }}
+                  >
+                    {validandoDescuento ? "Validando..." : "Aplicar"}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleLimpiarDescuento}
+                    className="btn-secondary"
+                    style={{ whiteSpace: "nowrap" }}
+                  >
+                    Quitar
+                  </button>
+                )}
+              </div>
+              {descuentoAplicado && (
+                <span style={{ fontSize: "0.85rem", color: "#28a745" }}>
+                  ✓ {descuentoAplicado.nombre} ({descuentoAplicado.porcentaje}%
+                  OFF)
+                </span>
+              )}
+            </div>
+
             <div className="summary-row">
               <span className="summary-label">{t("cart.summaryDiscount")}</span>
-              <span>${(carrito.descuentoAplicado ?? 0).toLocaleString()}</span>
+              <span
+                style={{
+                  color: descuentoCalculado > 0 ? "#28a745" : "inherit",
+                }}
+              >
+                -${descuentoCalculado.toLocaleString()}
+              </span>
             </div>
             <div className="summary-row">
               <span className="summary-label">{t("cart.summaryTotal")}</span>
-              <span className="summary-total">${totalResumen.toLocaleString()}</span>
+              <span className="summary-total">
+                ${totalResumen.toLocaleString()}
+              </span>
             </div>
             <button
               type="button"
@@ -377,7 +501,11 @@ export default function Carrito() {
         open={confirmCompraOpen}
         title={t("cart.confirmPurchase")}
         message="¿Querés confirmar esta compra?"
-        confirmLabel={confirmandoCompra ? t("cart.confirmingPurchase") : t("cart.confirmPurchase")}
+        confirmLabel={
+          confirmandoCompra
+            ? t("cart.confirmingPurchase")
+            : t("cart.confirmPurchase")
+        }
         cancelLabel="Cancelar"
         onConfirm={handleConfirmCompra}
         onCancel={closeConfirmCompra}
