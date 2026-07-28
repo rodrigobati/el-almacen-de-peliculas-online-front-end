@@ -348,6 +348,55 @@ export async function updateMovie(accessToken, id, payload) {
   };
 }
 
+export async function updateMovieStock(accessToken, id, payload) {
+  if (!accessToken) {
+    throw createApiError({
+      code: "AUTH_TOKEN_MISSING",
+      httpStatus: 401
+    });
+  }
+  if (!id) {
+    throw createApiError({
+      code: "VALIDATION_ID_REQUIRED",
+      details: { field: "id" }
+    });
+  }
+
+  const url = `${API_BASE}/admin/peliculas/${encodeURIComponent(id)}/stock`;
+  const isDev = import.meta.env?.DEV;
+  const context = { url, method: "PATCH" };
+
+  let res;
+  try {
+    res = await fetch(url, {
+      method: "PATCH",
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+  } catch (err) {
+    rewrapNetworkErrorIfNeeded(err, context);
+    if (isDev) {
+      console.error("UPDATE_MOVIE_STOCK_FETCH_ERROR", {
+        name: err?.name,
+        message: err?.message,
+        status: err?.status,
+        ...context
+      });
+    }
+    err.context = context;
+    throw err;
+  }
+
+  if (!res.ok) {
+    await parseErrorResponse(res, context);
+  }
+
+  return res.json();
+}
+
 export async function retireMovie(accessToken, id) {
   if (!accessToken) {
     throw createApiError({

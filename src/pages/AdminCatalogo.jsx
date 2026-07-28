@@ -3,18 +3,94 @@ import { useAuth } from "../contexts/AuthContext";
 import Toast from "../components/Toast";
 import ConfirmModal from "../components/ConfirmModal";
 import AdminMovieFormModal from "../components/AdminMovieFormModal";
+import AdminDescuentos from "../components/AdminDescuentos";
 import {
   listMovies,
   getMovieDetail,
   createMovie,
   updateMovie,
-  retireMovie
+  updateMovieStock,
+  retireMovie,
 } from "../api/catalogoAdmin";
 import { searchMovies } from "../api/movies";
 import { emitDevEvent } from "../utils/devDiagnostics";
 
+function formatStockValue(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric < 0) {
+    return "0";
+  }
+  return String(Math.trunc(numeric));
+}
+
+function parseStockValue(value) {
+  const trimmed = String(value ?? "").trim();
+  if (!/^\d+$/.test(trimmed)) {
+    return null;
+  }
+  const numeric = Number(trimmed);
+  return Number.isSafeInteger(numeric) ? numeric : null;
+}
+
+function StockCell({ item, disabled, saving, onSave, onInvalid }) {
+  const currentValue = formatStockValue(item?.stockDisponible);
+  const [draft, setDraft] = useState(currentValue);
+
+  useEffect(() => {
+    setDraft(currentValue);
+  }, [currentValue]);
+
+  const commit = () => {
+    if (disabled || saving) {
+      setDraft(currentValue);
+      return;
+    }
+
+    const parsed = parseStockValue(draft);
+    if (parsed === null) {
+      setDraft(currentValue);
+      onInvalid?.();
+      return;
+    }
+
+    if (String(parsed) === currentValue) {
+      return;
+    }
+
+    onSave?.(item, parsed);
+  };
+
+  return (
+    <div className="admin-stock-control">
+      <input
+        className="admin-stock-input"
+        type="number"
+        min="0"
+        step="1"
+        inputMode="numeric"
+        value={draft}
+        aria-label={`Stock de ${item?.titulo || "pelicula"}`}
+        disabled={disabled || saving}
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={commit}
+        onFocus={(event) => event.currentTarget.select()}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.currentTarget.blur();
+          }
+          if (event.key === "Escape") {
+            setDraft(currentValue);
+          }
+        }}
+      />
+      {saving ? <span className="admin-stock-saving">Guardando...</span> : null}
+    </div>
+  );
+}
+
 export default function AdminCatalogo() {
   const { keycloak } = useAuth();
+  const [activeTab, setActiveTab] = useState("movies");
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
@@ -29,7 +105,7 @@ export default function AdminCatalogo() {
     open: false,
     title: "",
     description: "",
-    variant: "success"
+    variant: "success",
   });
   const [formOpen, setFormOpen] = useState(false);
   const [formMode, setFormMode] = useState("create");
@@ -37,6 +113,7 @@ export default function AdminCatalogo() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [toRetire, setToRetire] = useState(null);
   const [retiredIds, setRetiredIds] = useState(() => new Set());
+  const [stockSavingIds, setStockSavingIds] = useState(() => new Set());
   const isDev = import.meta.env?.DEV;
   const toastIdRef = useRef(0);
 
@@ -45,7 +122,8 @@ export default function AdminCatalogo() {
   const isUnauthorized = status === 401;
   const isForbidden = status === 403;
   const isValidationError = status === 400;
-  const hasGenericError = Boolean(error) && !isUnauthorized && !isForbidden && !isValidationError;
+  const hasGenericError =
+    Boolean(error) && !isUnauthorized && !isForbidden && !isValidationError;
   const showEmptyState =
     !loading &&
     !isUnauthorized &&
@@ -57,6 +135,19 @@ export default function AdminCatalogo() {
   const shouldShowPager = totalPages > 0;
 
   const statusFor = (id) => (retiredIds.has(id) ? "Retirada" : "Activa");
+  const isStockSaving = (id) => stockSavingIds.has(id);
+
+  const setStockSaving = (id, saving) => {
+    setStockSavingIds((prev) => {
+      const next = new Set(prev);
+      if (saving) {
+        next.add(id);
+      } else {
+        next.delete(id);
+      }
+      return next;
+    });
+  };
 
   const showToast = (variant, title, description = "") => {
     const toastId = `toast-${Date.now()}-${++toastIdRef.current}`;
@@ -85,7 +176,7 @@ export default function AdminCatalogo() {
     return {
       isNetworkError,
       isHttpError: Number.isFinite(status),
-      message: finalMessage
+      message: finalMessage,
     };
   };
 
@@ -118,7 +209,13 @@ export default function AdminCatalogo() {
       if (isDev) {
         console.log("LOAD_MOVIES_START", { query, page, size });
       }
-      const data = await listMovies(accessToken, { q: query, page, size, sort: "fechaSalida", asc: false });
+      const data = await listMovies(accessToken, {
+        q: query,
+        page,
+        size,
+        sort: "fechaSalida",
+        asc: false,
+      });
       setItems(Array.isArray(data.items) ? data.items : []);
       setTotal(Number.isFinite(data.total) ? data.total : 0);
       setTotalPages(Number.isFinite(data.totalPages) ? data.totalPages : 0);
@@ -126,7 +223,10 @@ export default function AdminCatalogo() {
       setStatus(Number.isFinite(data.status) ? data.status : 200);
       setError("");
       if (isDev) {
-        console.log("LOAD_MOVIES_OK", { total: data.total, items: data.items?.length });
+        console.log("LOAD_MOVIES_OK", {
+          total: data.total,
+          items: data.items?.length,
+        });
       }
     } catch (err) {
       const httpStatus = getHttpStatusFromError(err);
@@ -154,7 +254,12 @@ export default function AdminCatalogo() {
     emitDevEvent("DEV_VERIFY_START", { source: "AdminCatalogo" });
 
     try {
-      const page0 = await searchMovies({ page: 0, size, sort: "fechaSalida", asc: false });
+      const page0 = await searchMovies({
+        page: 0,
+        size,
+        sort: "fechaSalida",
+        asc: false,
+      });
       emitDevEvent("PUBLIC_PAGE_FETCH_OK", {
         source: "DEV_VERIFY",
         page: 0,
@@ -173,7 +278,12 @@ export default function AdminCatalogo() {
     }
 
     try {
-      const page1 = await searchMovies({ page: 1, size, sort: "fechaSalida", asc: false });
+      const page1 = await searchMovies({
+        page: 1,
+        size,
+        sort: "fechaSalida",
+        asc: false,
+      });
       emitDevEvent("PUBLIC_PAGE_FETCH_OK", {
         source: "DEV_VERIFY",
         page: 1,
@@ -223,22 +333,38 @@ export default function AdminCatalogo() {
         ok: saveResult?.ok,
         title: uniqueTitle,
       });
-      showToast("success", "Verificacion DEV: guardado OK", `status=${saveResult?.status}`);
+      showToast(
+        "success",
+        "Verificacion DEV: guardado OK",
+        `status=${saveResult?.status}`,
+      );
     } catch (err) {
       emitDevEvent("ADMIN_SAVE_FAIL", {
         source: "DEV_VERIFY",
         message: err?.message || String(err),
         status: err?.status,
       });
-      showToast("error", "Verificacion DEV: fallo guardado", err?.message || String(err));
+      showToast(
+        "error",
+        "Verificacion DEV: fallo guardado",
+        err?.message || String(err),
+      );
       return;
     }
 
     try {
-      const refreshed = await listMovies(accessToken, { q: query, page, size, sort: "fechaSalida", asc: false });
+      const refreshed = await listMovies(accessToken, {
+        q: query,
+        page,
+        size,
+        sort: "fechaSalida",
+        asc: false,
+      });
       setItems(Array.isArray(refreshed.items) ? refreshed.items : []);
       setTotal(Number.isFinite(refreshed.total) ? refreshed.total : 0);
-      setTotalPages(Number.isFinite(refreshed.totalPages) ? refreshed.totalPages : 0);
+      setTotalPages(
+        Number.isFinite(refreshed.totalPages) ? refreshed.totalPages : 0,
+      );
       setSize(Number.isFinite(refreshed.size) ? refreshed.size : size);
       setStatus(Number.isFinite(refreshed.status) ? refreshed.status : 200);
       setError("");
@@ -258,7 +384,7 @@ export default function AdminCatalogo() {
       showToast(
         "error",
         "Guardado OK, pero no se pudo refrescar el catálogo",
-        err?.message || String(err)
+        err?.message || String(err),
       );
     }
   };
@@ -298,6 +424,69 @@ export default function AdminCatalogo() {
     }
   };
 
+  const handleInvalidStock = () => {
+    showToast("error", "Stock invalido", "Ingresá un numero entero mayor o igual a cero.");
+  };
+
+  const handleStockSave = async (item, nextStock) => {
+    if (!item?.id) {
+      return;
+    }
+
+    if (!accessToken) {
+      showToast("error", "Sesion requerida", "Volvé a iniciar sesión.");
+      return;
+    }
+
+    if (!Number.isFinite(Number(item.version))) {
+      showToast("error", "Stock desactualizado", "Refrescá el catalogo antes de modificar esta fila.");
+      return;
+    }
+
+    const previousItem = item;
+    setStockSaving(item.id, true);
+    setItems((current) =>
+      current.map((movie) =>
+        movie.id === item.id ? { ...movie, stockDisponible: nextStock } : movie,
+      ),
+    );
+
+    try {
+      const updated = await updateMovieStock(accessToken, item.id, {
+        stockDisponible: nextStock,
+        version: item.version,
+      });
+      setItems((current) =>
+        current.map((movie) =>
+          movie.id === item.id ? { ...movie, ...updated } : movie,
+        ),
+      );
+      showToast("success", "Stock actualizado", `${item.titulo}: ${nextStock} copias.`);
+    } catch (err) {
+      setItems((current) =>
+        current.map((movie) => (movie.id === item.id ? previousItem : movie)),
+      );
+
+      const httpStatus = getHttpStatusFromError(err);
+      if (httpStatus === 409 || err?.code === "STOCK_VERSION_CONFLICT") {
+        showToast(
+          "error",
+          "Stock desactualizado",
+          "La pelicula cambio en otra ventana. Refresque el catalogo.",
+        );
+        await loadMovies();
+      } else {
+        showToast(
+          "error",
+          "No se pudo actualizar el stock",
+          err?.rawMessage || err?.message || "Intenta nuevamente.",
+        );
+      }
+    } finally {
+      setStockSaving(item.id, false);
+    }
+  };
+
   const handleSubmit = async (payload) => {
     if (!accessToken) {
       showToast("error", "Sesion requerida", "Volvé a iniciar sesión.");
@@ -306,7 +495,10 @@ export default function AdminCatalogo() {
 
     setPending(true);
     if (isDev) {
-      console.log("SAVE_CALL_START", { mode: formMode, hasId: Boolean(formData?.id) });
+      console.log("SAVE_CALL_START", {
+        mode: formMode,
+        hasId: Boolean(formData?.id),
+      });
     }
     try {
       if (formMode === "create") {
@@ -340,7 +532,7 @@ export default function AdminCatalogo() {
           name: err?.name,
           message: err?.message,
           status: err?.status,
-          context: err?.context
+          context: err?.context,
         });
       }
       emitDevEvent("ADMIN_SAVE_FAIL", {
@@ -385,7 +577,7 @@ export default function AdminCatalogo() {
           name: err?.name,
           message: err?.message,
           status: err?.status,
-          context: err?.context
+          context: err?.context,
         });
       }
       emitDevEvent("ADMIN_REFRESH_FAIL", {
@@ -399,7 +591,7 @@ export default function AdminCatalogo() {
       showToast(
         "error",
         "Guardado OK, pero no se pudo refrescar el catalogo",
-        normalized.message
+        normalized.message,
       );
     }
   };
@@ -447,120 +639,169 @@ export default function AdminCatalogo() {
   };
 
   const filteredItems = useMemo(() => items, [items]);
-
   return (
     <div>
       <header className="topbar">
         <div className="container row admin-topbar">
           <div>
-            <h2>Administración de catálogo</h2>
-            <p className="muted">Gestiona altas, cambios y retiros.</p>
+            <h2>Administración</h2>
+            <p className="muted">Gestiona catálogo y descuentos.</p>
           </div>
-          <div className="grow">
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Buscar por titulo..."
-              className="search"
-              aria-label="Buscar peliculas"
-            />
-          </div>
-          <button className="btn admin-add" onClick={handleAdd}>
-            + Agregar pelicula
-          </button>
-          {isDev ? (
-            <button className="btn-secondary" onClick={runDevVerification}>
-              Ejecutar verificación (DEV)
+          <div className="admin-nav-tabs">
+            <button
+              className={`tab-nav-btn ${activeTab === "movies" ? "active" : ""}`}
+              onClick={() => setActiveTab("movies")}
+            >
+              🎬 Películas
             </button>
-          ) : null}
+            <button
+              className={`tab-nav-btn ${activeTab === "cupones" ? "active" : ""}`}
+              onClick={() => setActiveTab("cupones")}
+            >
+              🎟️ Cupones
+            </button>
+          </div>
         </div>
       </header>
 
       <main className="container admin-container">
-        {loading ? <p className="muted">Cargando catalogo...</p> : null}
-
-        {!loading && isUnauthorized ? <p className="muted">No autenticado. Inicia sesión para continuar.</p> : null}
-        {!loading && isForbidden ? <p className="muted">No autorizado.</p> : null}
-        {!loading && isValidationError ? <p className="muted">{error}</p> : null}
-        {!loading && hasGenericError ? <p className="muted">{error}</p> : null}
-
-        <div className="admin-table-wrapper">
-          <table className="admin-table">
-            <thead>
-              <tr>
-                <th>Titulo</th>
-                <th>Fecha</th>
-                <th>Precio</th>
-                <th>Formato / Genero</th>
-                <th>Estado</th>
-                <th className="admin-actions-col">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {showEmptyState ? (
-                <tr>
-                  <td colSpan={6} className="muted">
-                    No hay películas para mostrar.
-                  </td>
-                </tr>
+        {activeTab === "movies" && (
+          <>
+            <div className="admin-search-bar">
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Buscar por titulo..."
+                className="search"
+                aria-label="Buscar peliculas"
+              />
+              <button className="btn admin-add" onClick={handleAdd}>
+                + Agregar pelicula
+              </button>
+              {isDev ? (
+                <button className="btn-secondary" onClick={runDevVerification}>
+                  Ejecutar verificación (DEV)
+                </button>
               ) : null}
+            </div>
 
-              {filteredItems.map((item) => (
-                <tr key={item.id}>
-                  <td>
-                    <div className="admin-title">{item.titulo}</div>
-                  </td>
-                  <td>{item.fechaSalida || "-"}</td>
-                  <td>${Number(item.precio || 0).toLocaleString()}</td>
-                  <td>
-                    <span className="badge">{item.formato || "-"}</span>
-                    <span className="badge badge-secondary">{item.genero || "-"}</span>
-                  </td>
-                  <td>
-                    <span className={`status-pill ${statusFor(item.id) === "Retirada" ? "status-off" : "status-on"}`}>
-                      {statusFor(item.id)}
-                    </span>
-                  </td>
-                  <td className="admin-actions">
-                    <button
-                      className="btn-secondary"
-                      onClick={() => handleEdit(item)}
-                    >
-                      Editar
-                    </button>
-                    <button
-                      className="btn-danger"
-                      onClick={() => openRetire(item)}
-                      disabled={pending}
-                    >
-                      Retirar
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            {loading ? <p className="muted">Cargando catalogo...</p> : null}
 
-        {shouldShowPager ? (
-          <div className="pager admin-pager">
-            <button
-              onClick={() => setPage((p) => Math.max(0, p - 1))}
-              disabled={page <= 0}
-            >
-              Anterior
-            </button>
-            <span>
-              Página {page + 1} de {totalPages}
-            </span>
-            <button
-              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-              disabled={totalPages === 0 || page >= totalPages - 1}
-            >
-              Siguiente
-            </button>
+            {!loading && isUnauthorized ? (
+              <p className="muted">
+                No autenticado. Inicia sesión para continuar.
+              </p>
+            ) : null}
+            {!loading && isForbidden ? (
+              <p className="muted">No autorizado.</p>
+            ) : null}
+            {!loading && isValidationError ? (
+              <p className="muted">{error}</p>
+            ) : null}
+            {!loading && hasGenericError ? (
+              <p className="muted">{error}</p>
+            ) : null}
+
+            <div className="admin-table-wrapper">
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>Titulo</th>
+                    <th>Fecha</th>
+                    <th>Precio</th>
+                    <th>Formato / Genero</th>
+                    <th>Estado</th>
+                    <th className="admin-stock-col">Stock</th>
+                    <th className="admin-actions-col">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {showEmptyState ? (
+                    <tr>
+                      <td colSpan={7} className="muted">
+                        No hay películas para mostrar.
+                      </td>
+                    </tr>
+                  ) : null}
+
+                  {filteredItems.map((item) => (
+                    <tr key={item.id}>
+                      <td>
+                        <div className="admin-title">{item.titulo}</div>
+                      </td>
+                      <td>{item.fechaSalida || "-"}</td>
+                      <td>${Number(item.precio || 0).toLocaleString()}</td>
+                      <td>
+                        <span className="badge">{item.formato || "-"}</span>
+                        <span className="badge badge-secondary">
+                          {item.genero || "-"}
+                        </span>
+                      </td>
+                      <td>
+                        <span
+                          className={`status-pill ${statusFor(item.id) === "Retirada" ? "status-off" : "status-on"}`}
+                        >
+                          {statusFor(item.id)}
+                        </span>
+                      </td>
+                      <td className="admin-stock-cell">
+                        <StockCell
+                          item={item}
+                          disabled={pending || statusFor(item.id) === "Retirada"}
+                          saving={isStockSaving(item.id)}
+                          onSave={handleStockSave}
+                          onInvalid={handleInvalidStock}
+                        />
+                      </td>
+                      <td className="admin-actions">
+                        <button
+                          className="btn-secondary"
+                          onClick={() => handleEdit(item)}
+                        >
+                          Editar
+                        </button>
+                        <button
+                          className="btn-danger"
+                          onClick={() => openRetire(item)}
+                          disabled={pending}
+                        >
+                          Retirar
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {shouldShowPager ? (
+              <div className="pager admin-pager">
+                <button
+                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  disabled={page <= 0}
+                >
+                  Anterior
+                </button>
+                <span>
+                  Página {page + 1} de {totalPages}
+                </span>
+                <button
+                  onClick={() =>
+                    setPage((p) => Math.min(totalPages - 1, p + 1))
+                  }
+                  disabled={totalPages === 0 || page >= totalPages - 1}
+                >
+                  Siguiente
+                </button>
+              </div>
+            ) : null}
+          </>
+        )}
+        {activeTab === "cupones" && (
+          <div className="admin-section-cupones">
+            <AdminDescuentos />
           </div>
-        ) : null}
+        )}
       </main>
 
       <AdminMovieFormModal

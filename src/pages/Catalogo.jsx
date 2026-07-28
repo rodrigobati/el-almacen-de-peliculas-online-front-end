@@ -3,12 +3,14 @@ import React, { useEffect, useState } from "react";
 import ProductCard from "../components/ProductCard";
 import CategoryFilter from "../components/CategoryFilter";
 import { searchMovies, fetchCategories } from "../api/movies";
+import apiFetch from "../api/apiFetch";
 import Reviews from "../pages/Reviews";
 import { emitDevEvent } from "../utils/devDiagnostics";
 import { t } from "../i18n/t";
 
 export default function CatalogPage() {
   const BUILD_TAG = "CATALOGO-DBG-2026-02-14T03";
+  const CATALOG_SUBTITLE = "Películas disponibles";
   const DEFAULT_PAGE_SIZE = 4;
   const [qRaw, setQRaw] = useState("");
   const [query, setQuery] = useState("");
@@ -64,6 +66,30 @@ export default function CatalogPage() {
           const normalizedPage = Number.isFinite(data.page) && data.page >= 0 ? data.page : 0;
 
           setItems(normalizedItems);
+          // Try to fetch rating promedio for items that don't include it from backend
+          (async () => {
+            try {
+              const toFetch = normalizedItems.filter(i => (i.ratingPromedio == null || i.ratingPromedio === 0) && (i.id != null));
+              if (toFetch.length === 0) return;
+              const promises = toFetch.map(it => apiFetch(`/ratings/pelicula/${it.id}/promedio`, { method: 'GET' }));
+              const results = await Promise.all(promises.map(p => p.catch(e => e)));
+              const averages = await Promise.all(results.map(async (r, idx) => {
+                if (!r || !r.ok) return null;
+                try { return await r.json(); } catch { return null; }
+              }));
+              // Apply averages back into items
+              const updated = normalizedItems.map(it => {
+                const idx = toFetch.findIndex(f => f.id === it.id);
+                if (idx >= 0 && averages[idx] != null) {
+                  return { ...it, ratingPromedio: Number(averages[idx]) };
+                }
+                return it;
+              });
+              setItems(updated);
+            } catch (err) {
+              console.warn('Could not fetch rating promedio for items', err);
+            }
+          })();
           setTotal(normalizedTotal);
           if (normalizedPage !== page) {
             setPage(normalizedPage);
@@ -115,7 +141,7 @@ export default function CatalogPage() {
         <div className="container row">
           <h2>Catálogo</h2>
           <small style={{ marginLeft: 12, color: "var(--text-muted)" }}>
-            {BUILD_TAG}
+            {CATALOG_SUBTITLE}
           </small>
           <div className="grow">
             <input

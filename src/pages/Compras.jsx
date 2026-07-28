@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { getCompras } from "../api/ventas";
 import { useAuth } from "../contexts/AuthContext";
-import { apiErrorMessageKey, purchaseStatusLabel, t } from "../i18n/t";
+import { apiErrorMessageKey, purchaseStatusClass, purchaseStatusLabel, t } from "../i18n/t";
 
 function formatDate(dateValue) {
   if (!dateValue) return "-";
@@ -69,7 +69,12 @@ export default function Compras() {
           <article key={compra.id} className="carrito-item">
             <div>
               <h3>{t("purchases.purchaseTitle", { id: compra.id })}</h3>
-              <p>{t("purchases.statusLabel")}: {purchaseStatusLabel(compra.estado)}</p>
+              <p className="purchase-status-row">
+                <span>{t("purchases.statusLabel")}:</span>
+                <span className={purchaseStatusClass(compra.estado)}>
+                  {purchaseStatusLabel(compra.estado)}
+                </span>
+              </p>
               <p>{t("purchases.dateLabel")}: {formatDate(compra.fecha)}</p>
               <p>{t("purchases.totalLabel")}: {formatMoney(compra.total)}</p>
             </div>

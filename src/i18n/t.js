@@ -28,7 +28,21 @@ export function purchaseStatusLabel(status) {
   if (!status) {
     return t("purchaseStatus.DESCONOCIDO");
   }
-  return t(`purchaseStatus.${status}`);
+  return t(`purchaseStatus.${String(status).toUpperCase()}`);
+}
+
+export function purchaseStatusClass(status) {
+  const normalized = typeof status === "string" ? status.toUpperCase() : "";
+  if (normalized === "PENDING" || normalized === "PENDIENTE") {
+    return "purchase-status purchase-status-pending";
+  }
+  if (normalized === "CONFIRMADA") {
+    return "purchase-status purchase-status-confirmed";
+  }
+  if (normalized === "RECHAZADA" || normalized === "RECHAZADO") {
+    return "purchase-status purchase-status-rejected";
+  }
+  return "purchase-status purchase-status-unknown";
 }
 
 export function rejectionMessageByCode(code) {

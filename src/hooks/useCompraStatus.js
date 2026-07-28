@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getCompraDetalle } from "../api/ventas";
 
+const ESTADO_PENDIENTE = "PENDING";
+
 export default function useCompraStatus(compraId, token) {
   const [compra, setCompra] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -43,7 +45,7 @@ export default function useCompraStatus(compraId, token) {
         const detail = await fetchDetail();
         if (cancelled || !detail) return;
 
-        if (detail.estado === "CONFIRMADA") {
+        if (detail.estado === ESTADO_PENDIENTE) {
           setIsPolling(true);
 
           const poll = async () => {
@@ -55,7 +57,7 @@ export default function useCompraStatus(compraId, token) {
 
               setCompra(next);
 
-              if (next.estado === "RECHAZADA") {
+              if (next.estado !== ESTADO_PENDIENTE) {
                 clearPolling();
                 return;
               }

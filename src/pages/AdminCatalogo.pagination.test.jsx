@@ -27,6 +27,7 @@ vi.mock("../api/catalogoAdmin", () => ({
   getMovieDetail: vi.fn(),
   createMovie: vi.fn(),
   updateMovie: vi.fn(),
+  updateMovieStock: vi.fn(),
   retireMovie: vi.fn(),
 }));
 
@@ -56,7 +57,7 @@ describe("AdminCatalogo pagination contract", () => {
 
   it("enables next and disables prev on first page when totalPages is greater than 0", async () => {
     listMoviesMock.mockResolvedValue({
-      items: [{ id: 1, titulo: "Matrix", precio: 10 }],
+      items: [{ id: 1, titulo: "Matrix", precio: 10, stockDisponible: 7, version: 1 }],
       total: 3,
       totalPages: 3,
       page: 0,
@@ -70,6 +71,7 @@ describe("AdminCatalogo pagination contract", () => {
       expect(screen.getByText("Página 1 de 3")).toBeInTheDocument();
     });
 
+    expect(screen.getByRole("spinbutton", { name: "Stock de Matrix" })).toHaveValue(7);
     expect(screen.getByRole("button", { name: "Anterior" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Siguiente" })).toBeEnabled();
   });

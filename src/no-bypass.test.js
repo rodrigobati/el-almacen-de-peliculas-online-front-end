@@ -20,7 +20,8 @@ describe('Frontend no-bypass check', () => {
   it('does not contain direct backend URLs in source', () => {
     const projectRoot = path.resolve(__dirname, '..');
     const srcDir = path.join(projectRoot, 'src');
-    const files = readFiles(srcDir);
+    const ruleFile = path.resolve(__dirname, 'no-bypass.test.js');
+    const files = readFiles(srcDir).filter(file => path.resolve(file) !== ruleFile);
 
     const forbidden = [
       'http://localhost:8081', // catalogo backend
